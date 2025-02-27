@@ -20,8 +20,6 @@ export function registerModeSwitchingCommands(context: vscode.ExtensionContext) 
 						text: nextMode.slug,
 					})
 				}
-
-				vscode.window.showInformationMessage(`Switched to ${nextMode.name} mode`)
 			} catch (error) {
 				vscode.window.showErrorMessage(`Failed to switch mode: ${error}`)
 			}

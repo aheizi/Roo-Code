@@ -50,7 +50,6 @@ const App = () => {
 			}
 
 			if (message.type === "mode" && message.text) {
-				console.log("Received mode switch message:", message.text)
 				if (tab !== "chat") {
 					switchTab("chat")
 				}
