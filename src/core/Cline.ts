@@ -47,6 +47,8 @@ import {
 import { getApiMetrics } from "../shared/getApiMetrics"
 import { HistoryItem } from "../shared/HistoryItem"
 import { ClineAskResponse } from "../shared/WebviewMessage"
+import { GlobalFileNames } from "../shared/globalFileNames"
+import { defaultModeSlug, getModeBySlug, getFullModeDetails } from "../shared/modes"
 import { calculateApiCost } from "../utils/cost"
 import { fileExistsAtPath } from "../utils/fs"
 import { arePathsEqual, getReadablePath } from "../utils/path"
@@ -54,12 +56,10 @@ import { parseMentions } from "./mentions"
 import { AssistantMessageContent, parseAssistantMessage, ToolParamName, ToolUseName } from "./assistant-message"
 import { formatResponse } from "./prompts/responses"
 import { SYSTEM_PROMPT } from "./prompts/system"
-import { modes, defaultModeSlug, getModeBySlug, getFullModeDetails } from "../shared/modes"
 import { truncateConversationIfNeeded } from "./sliding-window"
-import { ClineProvider, GlobalFileNames } from "./webview/ClineProvider"
+import { ClineProvider } from "./webview/ClineProvider"
 import { detectCodeOmission } from "../integrations/editor/detect-omission"
 import { BrowserSession } from "../services/browser/BrowserSession"
-import { OpenRouterHandler } from "../api/providers/openrouter"
 import { McpHub } from "../services/mcp/McpHub"
 import crypto from "crypto"
 import { insertGroups } from "./diff/insert-groups"
@@ -69,12 +69,25 @@ const cwd =
 	vscode.workspace.workspaceFolders?.map((folder) => folder.uri.fsPath).at(0) ?? path.join(os.homedir(), "Desktop") // may or may not exist but fs checking existence would immediately ask for permission which would be bad UX, need to come up with a better solution
 
 type ToolResponse = string | Array<Anthropic.TextBlockParam | Anthropic.ImageBlockParam>
-type UserContent = Array<
-	Anthropic.TextBlockParam | Anthropic.ImageBlockParam | Anthropic.ToolUseBlockParam | Anthropic.ToolResultBlockParam
->
+type UserContent = Array<Anthropic.Messages.ContentBlockParam>
+
+export type ClineOptions = {
+	provider: ClineProvider
+	apiConfiguration: ApiConfiguration
+	customInstructions?: string
+	enableDiff?: boolean
+	enableCheckpoints?: boolean
+	fuzzyMatchThreshold?: number
+	task?: string
+	images?: string[]
+	historyItem?: HistoryItem
+	experiments?: Record<string, boolean>
+	startTask?: boolean
+}
 
 export class Cline {
 	readonly taskId: string
+	readonly apiConfiguration: ApiConfiguration
 	api: ApiHandler
 	private terminalManager: TerminalManager
 	private urlContentFetcher: UrlContentFetcher
@@ -102,7 +115,7 @@ export class Cline {
 	isInitialized = false
 
 	// checkpoints
-	checkpointsEnabled: boolean = false
+	enableCheckpoints: boolean = false
 	private checkpointService?: CheckpointService
 
 	// streaming
@@ -118,23 +131,25 @@ export class Cline {
 	private didAlreadyUseTool = false
 	private didCompleteReadingStream = false
 
-	constructor(
-		provider: ClineProvider,
-		apiConfiguration: ApiConfiguration,
-		customInstructions?: string,
-		enableDiff?: boolean,
-		enableCheckpoints?: boolean,
-		fuzzyMatchThreshold?: number,
-		task?: string | undefined,
-		images?: string[] | undefined,
-		historyItem?: HistoryItem | undefined,
-		experiments?: Record<string, boolean>,
-	) {
-		if (!task && !images && !historyItem) {
+	constructor({
+		provider,
+		apiConfiguration,
+		customInstructions,
+		enableDiff,
+		enableCheckpoints,
+		fuzzyMatchThreshold,
+		task,
+		images,
+		historyItem,
+		experiments,
+		startTask = true,
+	}: ClineOptions) {
+		if (startTask && !task && !images && !historyItem) {
 			throw new Error("Either historyItem or task/images must be provided")
 		}
 
 		this.taskId = crypto.randomUUID()
+		this.apiConfiguration = apiConfiguration
 		this.api = buildApiHandler(apiConfiguration)
 		this.terminalManager = new TerminalManager()
 		this.urlContentFetcher = new UrlContentFetcher(provider.context)
@@ -144,7 +159,7 @@ export class Cline {
 		this.fuzzyMatchThreshold = fuzzyMatchThreshold ?? 1.0
 		this.providerRef = new WeakRef(provider)
 		this.diffViewProvider = new DiffViewProvider(cwd)
-		this.checkpointsEnabled = enableCheckpoints ?? false
+		this.enableCheckpoints = enableCheckpoints ?? false
 
 		if (historyItem) {
 			this.taskId = historyItem.id
@@ -153,11 +168,31 @@ export class Cline {
 		// Initialize diffStrategy based on current state
 		this.updateDiffStrategy(Experiments.isEnabled(experiments ?? {}, EXPERIMENT_IDS.DIFF_STRATEGY))
 
-		if (task || images) {
-			this.startTask(task, images)
-		} else if (historyItem) {
-			this.resumeTaskFromHistory()
+		if (startTask) {
+			if (task || images) {
+				this.startTask(task, images)
+			} else if (historyItem) {
+				this.resumeTaskFromHistory()
+			} else {
+				throw new Error("Either historyItem or task/images must be provided")
+			}
 		}
+	}
+
+	static create(options: ClineOptions): [Cline, Promise<void>] {
+		const instance = new Cline({ ...options, startTask: false })
+		const { images, task, historyItem } = options
+		let promise
+
+		if (images || task) {
+			promise = instance.startTask(task, images)
+		} else if (historyItem) {
+			promise = instance.resumeTaskFromHistory()
+		} else {
+			throw new Error("Either historyItem or task/images must be provided")
+		}
+
+		return [instance, promise]
 	}
 
 	// Add method to update diffStrategy
@@ -745,8 +780,12 @@ export class Cline {
 		}
 	}
 
-	async abortTask() {
+	async abortTask(isAbandoned = false) {
 		// Will stop any autonomously running promises.
+		if (isAbandoned) {
+			this.abandoned = true
+		}
+
 		this.abort = true
 
 		this.terminalManager.disposeAll()
@@ -924,13 +963,21 @@ export class Cline {
 				cacheWrites = 0,
 				cacheReads = 0,
 			}: ClineApiReqInfo = JSON.parse(previousRequest)
+
 			const totalTokens = tokensIn + tokensOut + cacheWrites + cacheReads
 
-			const trimmedMessages = truncateConversationIfNeeded(
-				this.apiConversationHistory,
+			const modelInfo = this.api.getModel().info
+			const maxTokens = modelInfo.thinking
+				? this.apiConfiguration.modelMaxTokens || modelInfo.maxTokens
+				: modelInfo.maxTokens
+			const contextWindow = modelInfo.contextWindow
+
+			const trimmedMessages = truncateConversationIfNeeded({
+				messages: this.apiConversationHistory,
 				totalTokens,
-				this.api.getModel().info,
-			)
+				maxTokens,
+				contextWindow,
+			})
 
 			if (trimmedMessages !== this.apiConversationHistory) {
 				await this.overwriteApiConversationHistory(trimmedMessages)
@@ -973,7 +1020,7 @@ export class Cline {
 		} catch (error) {
 			// note that this api_req_failed ask is unique in that we only present this option if the api hasn't streamed any content yet (ie it fails on the first chunk due), as it would allow them to hit a retry button. However if the api failed mid-stream, it could be in any arbitrary state where some tools may have executed, so that error is handled differently and requires cancelling the task entirely.
 			if (alwaysApproveResubmit) {
-				const errorMsg = error.message ?? "Unknown error"
+				const errorMsg = error.error?.metadata?.raw ?? error.message ?? "Unknown error"
 				const baseDelay = requestDelaySeconds || 5
 				const exponentialDelay = Math.ceil(baseDelay * Math.pow(2, retryAttempt))
 				// Wait for the greater of the exponential delay or the rate limit delay
@@ -2753,7 +2800,7 @@ export class Cline {
 				"mistake_limit_reached",
 				this.api.getModel().id.includes("claude")
 					? `This may indicate a failure in his thought process or inability to use a tool properly, which can be mitigated with some user guidance (e.g. "Try breaking down the task into smaller steps").`
-					: "Roo Code uses complex prompts and iterative task execution that may be challenging for less capable models. For best results, it's recommended to use Claude 3.5 Sonnet for its advanced agentic coding capabilities.",
+					: "Roo Code uses complex prompts and iterative task execution that may be challenging for less capable models. For best results, it's recommended to use Claude 3.7 Sonnet for its advanced agentic coding capabilities.",
 			)
 			if (response === "messageResponse") {
 				userContent.push(
@@ -2967,7 +3014,7 @@ export class Cline {
 			}
 
 			// need to call here in case the stream was aborted
-			if (this.abort) {
+			if (this.abort || this.abandoned) {
 				throw new Error("Roo Code instance aborted")
 			}
 
@@ -3290,7 +3337,7 @@ export class Cline {
 	// Checkpoints
 
 	private async getCheckpointService() {
-		if (!this.checkpointsEnabled) {
+		if (!this.enableCheckpoints) {
 			throw new Error("Checkpoints are disabled")
 		}
 
@@ -3331,7 +3378,7 @@ export class Cline {
 		commitHash: string
 		mode: "full" | "checkpoint"
 	}) {
-		if (!this.checkpointsEnabled) {
+		if (!this.enableCheckpoints) {
 			return
 		}
 
@@ -3370,12 +3417,12 @@ export class Cline {
 			)
 		} catch (err) {
 			this.providerRef.deref()?.log("[checkpointDiff] disabling checkpoints for this task")
-			this.checkpointsEnabled = false
+			this.enableCheckpoints = false
 		}
 	}
 
 	public async checkpointSave({ isFirst }: { isFirst: boolean }) {
-		if (!this.checkpointsEnabled) {
+		if (!this.enableCheckpoints) {
 			return
 		}
 
@@ -3396,7 +3443,7 @@ export class Cline {
 			}
 		} catch (err) {
 			this.providerRef.deref()?.log("[checkpointSave] disabling checkpoints for this task")
-			this.checkpointsEnabled = false
+			this.enableCheckpoints = false
 		}
 	}
 
@@ -3409,7 +3456,7 @@ export class Cline {
 		commitHash: string
 		mode: "preview" | "restore"
 	}) {
-		if (!this.checkpointsEnabled) {
+		if (!this.enableCheckpoints) {
 			return
 		}
 
@@ -3464,7 +3511,7 @@ export class Cline {
 			this.providerRef.deref()?.cancelTask()
 		} catch (err) {
 			this.providerRef.deref()?.log("[checkpointRestore] disabling checkpoints for this task")
-			this.checkpointsEnabled = false
+			this.enableCheckpoints = false
 		}
 	}
 }

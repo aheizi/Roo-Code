@@ -893,9 +893,10 @@ const ChatView = forwardRef<ChatViewRef, ChatViewProps>(
 		const placeholderText = useMemo(() => {
 			const baseText = task ? "Type a message..." : "Type your task here..."
 			const contextText = "(@ to add context, / to switch modes"
-			const imageText = shouldDisableImages ? "" : ", hold shift to drag in images"
-			const helpText = imageText ? `\n${contextText}${imageText})` : `\n${contextText})`
-			return baseText + helpText
+			const imageText = shouldDisableImages
+				? "hold shift to drag in files"
+				: ", hold shift to drag in files/images"
+			return baseText + `\n${contextText}${imageText})`
 		}, [task, shouldDisableImages])
 
 		const itemContent = useCallback(
@@ -1102,7 +1103,8 @@ const ChatView = forwardRef<ChatViewRef, ChatViewProps>(
 									onClick={() => {
 										scrollToBottomSmooth()
 										disableAutoScrollRef.current = false
-									}}>
+									}}
+									title="Scroll to bottom of chat">
 									<span className="codicon codicon-chevron-down" style={{ fontSize: "18px" }}></span>
 								</ScrollToBottomButton>
 							</div>
@@ -1126,6 +1128,25 @@ const ChatView = forwardRef<ChatViewRef, ChatViewProps>(
 											flex: secondaryButtonText ? 1 : 2,
 											marginRight: secondaryButtonText ? "6px" : "0",
 										}}
+										title={
+											primaryButtonText === "Retry"
+												? "Try the operation again"
+												: primaryButtonText === "Save"
+													? "Save the file changes"
+													: primaryButtonText === "Approve"
+														? "Approve this action"
+														: primaryButtonText === "Run Command"
+															? "Execute this command"
+															: primaryButtonText === "Start New Task"
+																? "Begin a new task"
+																: primaryButtonText === "Resume Task"
+																	? "Continue the current task"
+																	: primaryButtonText === "Proceed Anyways"
+																		? "Continue despite warnings"
+																		: primaryButtonText === "Proceed While Running"
+																			? "Continue while command executes"
+																			: undefined
+										}
 										onClick={(e) => handlePrimaryButtonClick(inputValue, selectedImages)}>
 										{primaryButtonText}
 									</VSCodeButton>
@@ -1138,6 +1159,17 @@ const ChatView = forwardRef<ChatViewRef, ChatViewProps>(
 											flex: isStreaming ? 2 : 1,
 											marginLeft: isStreaming ? 0 : "6px",
 										}}
+										title={
+											isStreaming
+												? "Cancel the current operation"
+												: secondaryButtonText === "Start New Task"
+													? "Begin a new task"
+													: secondaryButtonText === "Reject"
+														? "Reject this action"
+														: secondaryButtonText === "Terminate"
+															? "End the current task"
+															: undefined
+										}
 										onClick={(e) => handleSecondaryButtonClick(inputValue, selectedImages)}>
 										{isStreaming ? "Cancel" : secondaryButtonText}
 									</VSCodeButton>
