@@ -1020,6 +1020,15 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 					case "deleteTaskWithId":
 						this.deleteTaskWithId(message.text!)
 						break
+					case "deleteMultipleTasksWithIds": {
+						const ids = message.ids
+						if (Array.isArray(ids)) {
+							for (const id of ids) {
+								await this.deleteTaskWithId(id)
+							}
+						}
+						break
+					}
 					case "exportTaskWithId":
 						this.exportTaskWithId(message.text!)
 						break
