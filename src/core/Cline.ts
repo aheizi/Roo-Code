@@ -26,7 +26,9 @@ import {
 	stripLineNumbers,
 	everyLineHasLineNumbers,
 } from "../integrations/misc/extract-text"
-import { TerminalManager, ExitCodeDetails } from "../integrations/terminal/TerminalManager"
+import { ExitCodeDetails } from "../integrations/terminal/TerminalProcess"
+import { Terminal } from "../integrations/terminal/Terminal"
+import { TerminalRegistry } from "../integrations/terminal/TerminalRegistry"
 import { UrlContentFetcher } from "../services/browser/UrlContentFetcher"
 import { listFiles } from "../services/glob/list-files"
 import { regexSearchFiles } from "../services/ripgrep"
@@ -48,6 +50,7 @@ import {
 	ClineSay,
 	ClineSayBrowserAction,
 	ClineSayTool,
+	ToolProgressStatus,
 } from "../shared/ExtensionMessage"
 import { getApiMetrics } from "../shared/getApiMetrics"
 import { HistoryItem } from "../shared/HistoryItem"
@@ -55,11 +58,11 @@ import { ClineAskResponse } from "../shared/WebviewMessage"
 import { GlobalFileNames } from "../shared/globalFileNames"
 import { defaultModeSlug, getModeBySlug, getFullModeDetails } from "../shared/modes"
 import { EXPERIMENT_IDS, experiments as Experiments, ExperimentId } from "../shared/experiments"
-import { calculateApiCost } from "../utils/cost"
+import { calculateApiCostAnthropic } from "../utils/cost"
 import { fileExistsAtPath } from "../utils/fs"
 import { arePathsEqual, getReadablePath } from "../utils/path"
 import { parseMentions } from "./mentions"
-import { RooIgnoreController } from "./ignore/RooIgnoreController"
+import { RooIgnoreController, LOCK_TEXT_SYMBOL } from "./ignore/RooIgnoreController"
 import { AssistantMessageContent, parseAssistantMessage, ToolParamName, ToolUseName } from "./assistant-message"
 import { formatResponse } from "./prompts/responses"
 import { SYSTEM_PROMPT } from "./prompts/system"
@@ -67,10 +70,10 @@ import { truncateConversationIfNeeded } from "./sliding-window"
 import { ClineProvider } from "./webview/ClineProvider"
 import { detectCodeOmission } from "../integrations/editor/detect-omission"
 import { BrowserSession } from "../services/browser/BrowserSession"
+import { formatLanguage } from "../shared/language"
 import { McpHub } from "../services/mcp/McpHub"
 import crypto from "crypto"
 import { insertGroups } from "./diff/insert-groups"
-import { OutputBuilder } from "../integrations/terminal/OutputBuilder"
 import { telemetryService } from "../services/telemetry/TelemetryService"
 
 const cwd =
@@ -109,7 +112,6 @@ export class Cline {
 	private rootTask: Cline | undefined = undefined
 	readonly apiConfiguration: ApiConfiguration
 	api: ApiHandler
-	private terminalManager: TerminalManager
 	private urlContentFetcher: UrlContentFetcher
 	private browserSession: BrowserSession
 	private didEditFile: boolean = false
@@ -180,7 +182,6 @@ export class Cline {
 		this.taskNumber = -1
 		this.apiConfiguration = apiConfiguration
 		this.api = buildApiHandler(apiConfiguration)
-		this.terminalManager = new TerminalManager()
 		this.urlContentFetcher = new UrlContentFetcher(provider.context)
 		this.browserSession = new BrowserSession(provider.context)
 		this.customInstructions = customInstructions
@@ -408,6 +409,7 @@ export class Cline {
 		type: ClineAsk,
 		text?: string,
 		partial?: boolean,
+		progressStatus?: ToolProgressStatus,
 	): Promise<{ response: ClineAskResponse; text?: string; images?: string[] }> {
 		// If this Cline instance was aborted by the provider, then the only thing keeping us alive is a promise still running in the background, in which case we don't want to send its result to the webview as it is attached to a new instance of Cline now. So we can safely ignore the result of any active promises, and this class will be deallocated. (Although we set Cline = undefined in provider, that simply removes the reference to this instance, but the instance is still alive until this promise resolves or rejects.)
 		if (this.abort) {
@@ -423,6 +425,7 @@ export class Cline {
 					// existing partial message, so update it
 					lastMessage.text = text
 					lastMessage.partial = partial
+					lastMessage.progressStatus = progressStatus
 					// todo be more efficient about saving and posting only new data or one whole message at a time so ignore partial for saves, and only post parts of partial message instead of whole array in new listener
 					// await this.saveClineMessages()
 					// await this.providerRef.deref()?.postStateToWebview()
@@ -460,6 +463,8 @@ export class Cline {
 					// lastMessage.ts = askTs
 					lastMessage.text = text
 					lastMessage.partial = false
+					lastMessage.progressStatus = progressStatus
+
 					await this.saveClineMessages()
 					// await this.providerRef.deref()?.postStateToWebview()
 					await this.providerRef
@@ -511,6 +516,7 @@ export class Cline {
 		images?: string[],
 		partial?: boolean,
 		checkpoint?: Record<string, unknown>,
+		progressStatus?: ToolProgressStatus,
 	): Promise<undefined> {
 		if (this.abort) {
 			throw new Error(`Task: ${this.taskNumber} Roo Code instance aborted (#2)`)
@@ -526,6 +532,7 @@ export class Cline {
 					lastMessage.text = text
 					lastMessage.images = images
 					lastMessage.partial = partial
+					lastMessage.progressStatus = progressStatus
 					await this.providerRef
 						.deref()
 						?.postMessageToWebview({ type: "partialMessage", partialMessage: lastMessage })
@@ -545,6 +552,7 @@ export class Cline {
 					lastMessage.text = text
 					lastMessage.images = images
 					lastMessage.partial = false
+					lastMessage.progressStatus = progressStatus
 
 					// instead of streaming partialMessage events, we do a save and post like normal to persist to disk
 					await this.saveClineMessages()
@@ -875,7 +883,7 @@ export class Cline {
 			//  The way this agentic loop works is that cline will be given a task that he then calls tools to complete. unless there's an attempt_completion call, we keep responding back to him with his tool's responses until he either attempt_completion or does not use anymore tools. If he does not use anymore tools, we ask him to consider if he's completed the task and then call attempt_completion, otherwise proceed with completing the task.
 			// There is a MAX_REQUESTS_PER_TASK limit to prevent infinite requests, but Cline is prompted to finish the task as efficiently as he can.
 
-			//const totalCost = this.calculateApiCost(totalInputTokens, totalOutputTokens)
+			//const totalCost = this.calculateApiCostAnthropic(totalInputTokens, totalOutputTokens)
 			if (didEndLoop) {
 				// For now a task never 'completes'. This will only happen if the user hits max requests and denies resetting the count.
 				//this.say("task_completed", `Task completed. Total API usage cost: ${totalCost}`)
@@ -904,7 +912,9 @@ export class Cline {
 
 		this.abort = true
 
-		this.terminalManager.disposeAll()
+		// Release any terminals associated with this task
+		TerminalRegistry.releaseTerminalsForTask(this.taskId)
+
 		this.urlContentFetcher.closeBrowser()
 		this.browserSession.closeBrowser()
 		this.rooIgnoreController?.dispose()
@@ -918,120 +928,133 @@ export class Cline {
 
 	// Tools
 
-	async executeCommandTool(command: string): Promise<[boolean, ToolResponse]> {
-		const { terminalOutputLimit } = (await this.providerRef.deref()?.getState()) ?? {}
+	async executeCommandTool(command: string, customCwd?: string): Promise<[boolean, ToolResponse]> {
+		let workingDir: string
+		if (!customCwd) {
+			workingDir = cwd
+		} else if (path.isAbsolute(customCwd)) {
+			workingDir = customCwd
+		} else {
+			workingDir = path.resolve(cwd, customCwd)
+		}
 
-		const terminalInfo = await this.terminalManager.getOrCreateTerminal(cwd)
-		// Weird visual bug when creating new terminals (even manually) where
-		// there's an empty space at the top.
-		terminalInfo.terminal.show()
-		const process = this.terminalManager.runCommand(terminalInfo, command, terminalOutputLimit)
+		// Check if directory exists
+		try {
+			await fs.access(workingDir)
+		} catch (error) {
+			return [false, `Working directory '${workingDir}' does not exist.`]
+		}
+
+		const terminalInfo = await TerminalRegistry.getOrCreateTerminal(workingDir, !!customCwd, this.taskId)
+
+		// Update the working directory in case the terminal we asked for has
+		// a different working directory so that the model will know where the
+		// command actually executed:
+		workingDir = terminalInfo.getCurrentWorkingDirectory()
+
+		const workingDirInfo = workingDir ? ` from '${workingDir.toPosix()}'` : ""
+		terminalInfo.terminal.show() // weird visual bug when creating new terminals (even manually) where there's an empty space at the top.
+		const process = terminalInfo.runCommand(command)
 
 		let userFeedback: { text?: string; images?: string[] } | undefined
 		let didContinue = false
-
-		const sendCommandOutput = async (line: string) => {
+		const sendCommandOutput = async (line: string): Promise<void> => {
 			try {
 				const { response, text, images } = await this.ask("command_output", line)
-
 				if (response === "yesButtonClicked") {
-					// Proceed while running.
+					// proceed while running
 				} else {
 					userFeedback = { text, images }
 				}
-
 				didContinue = true
-				process.continue() // Continue past the await.
+				process.continue() // continue past the await
 			} catch {
-				// This can only happen if this ask promise was ignored, so ignore this error.
+				// This can only happen if this ask promise was ignored, so ignore this error
 			}
 		}
 
-		let completed = false
-		let exitDetails: ExitCodeDetails | undefined
-
-		let builder = new OutputBuilder({ maxSize: terminalOutputLimit })
-		let output: string | undefined = undefined
+		const { terminalOutputLineLimit } = (await this.providerRef.deref()?.getState()) ?? {}
 
 		process.on("line", (line) => {
-			builder.append(line)
-
 			if (!didContinue) {
-				sendCommandOutput(line)
+				sendCommandOutput(Terminal.compressTerminalOutput(line, terminalOutputLineLimit))
 			} else {
-				this.say("command_output", line)
+				this.say("command_output", Terminal.compressTerminalOutput(line, terminalOutputLineLimit))
 			}
 		})
 
-		process.once("completed", (buffer?: string) => {
-			output = buffer
+		let completed = false
+		let result: string = ""
+		let exitDetails: ExitCodeDetails | undefined
+		process.once("completed", (output?: string) => {
+			// Use provided output if available, otherwise keep existing result.
+			result = output ?? ""
 			completed = true
 		})
 
-		process.once("shell_execution_complete", (id: number, details: ExitCodeDetails) => {
-			if (id === terminalInfo.id) {
-				exitDetails = details
-			}
+		process.once("shell_execution_complete", (details: ExitCodeDetails) => {
+			exitDetails = details
 		})
 
-		process.once("no_shell_integration", async () => {
-			await this.say("shell_integration_warning")
-		})
-
-		process.once("stream_stalled", async (id: number) => {
-			if (id === terminalInfo.id && !didContinue) {
-				sendCommandOutput("")
-			}
+		process.once("no_shell_integration", async (message: string) => {
+			await this.say("shell_integration_warning", message)
 		})
 
 		await process
 
-		// Wait for a short delay to ensure all messages are sent to the webview.
+		// Wait for a short delay to ensure all messages are sent to the webview
 		// This delay allows time for non-awaited promises to be created and
 		// for their associated messages to be sent to the webview, maintaining
 		// the correct order of messages (although the webview is smart about
-		// grouping command_output messages despite any gaps anyways).
+		// grouping command_output messages despite any gaps anyways)
 		await delay(50)
-		const result = output || builder.content
+
+		result = Terminal.compressTerminalOutput(result, terminalOutputLineLimit)
 
 		if (userFeedback) {
 			await this.say("user_feedback", userFeedback.text, userFeedback.images)
-
 			return [
 				true,
 				formatResponse.toolResult(
-					`Command is still running in the user's terminal.${
+					`Command is still running in terminal ${terminalInfo.id}${workingDirInfo}.${
 						result.length > 0 ? `\nHere's the output so far:\n${result}` : ""
 					}\n\nThe user provided the following feedback:\n<feedback>\n${userFeedback.text}\n</feedback>`,
 					userFeedback.images,
 				),
 			]
-		}
-
-		if (completed) {
-			let exitStatus = "No exit code available"
-
+		} else if (completed) {
+			let exitStatus: string
 			if (exitDetails !== undefined) {
 				if (exitDetails.signal) {
 					exitStatus = `Process terminated by signal ${exitDetails.signal} (${exitDetails.signalName})`
-
 					if (exitDetails.coreDumpPossible) {
 						exitStatus += " - core dump possible"
 					}
+				} else if (exitDetails.exitCode === undefined) {
+					result += "<VSCE exit code is undefined: terminal output and command execution status is unknown.>"
+					exitStatus = `Exit code: <undefined, notify user>`
 				} else {
 					exitStatus = `Exit code: ${exitDetails.exitCode}`
 				}
+			} else {
+				result += "<VSCE exitDetails == undefined: terminal output and command execution status is unknown.>"
+				exitStatus = `Exit code: <undefined, notify user>`
 			}
+			const workingDirInfo = workingDir ? ` from '${workingDir.toPosix()}'` : ""
 
-			return [false, `Command executed. ${exitStatus}${result.length > 0 ? `\nOutput:\n${result}` : ""}`]
+			const outputInfo = `\nOutput:\n${result}`
+			return [
+				false,
+				`Command executed in terminal ${terminalInfo.id}${workingDirInfo}. ${exitStatus}${outputInfo}`,
+			]
+		} else {
+			return [
+				false,
+				`Command is still running in terminal ${terminalInfo.id}${workingDirInfo}.${
+					result.length > 0 ? `\nHere's the output so far:\n${result}` : ""
+				}\n\nYou will be updated on the terminal status and new output in the future.`,
+			]
 		}
-
-		return [
-			false,
-			`Command is still running in the user's terminal.${
-				result.length > 0 ? `\nHere's the output so far:\n${result}` : ""
-			}\n\nYou will be updated on the terminal status and new output in the future.`,
-		]
 	}
 
 	async *attemptApiRequest(previousApiReqIndex: number, retryAttempt: number = 0): ApiStream {
@@ -1080,7 +1103,6 @@ export class Cline {
 			browserViewportSize,
 			mode,
 			customModePrompts,
-			preferredLanguage,
 			experiments,
 			enableMcpServerCreation,
 			browserToolEnabled,
@@ -1102,7 +1124,6 @@ export class Cline {
 				customModePrompts,
 				customModes,
 				this.customInstructions,
-				preferredLanguage,
 				this.diffEnabled,
 				experiments,
 				enableMcpServerCreation,
@@ -1394,8 +1415,12 @@ export class Cline {
 					isCheckpointPossible = true
 				}
 
-				const askApproval = async (type: ClineAsk, partialMessage?: string) => {
-					const { response, text, images } = await this.ask(type, partialMessage, false)
+				const askApproval = async (
+					type: ClineAsk,
+					partialMessage?: string,
+					progressStatus?: ToolProgressStatus,
+				) => {
+					const { response, text, images } = await this.ask(type, partialMessage, false, progressStatus)
 					if (response !== "yesButtonClicked") {
 						// Handle both messageResponse and noButtonClicked with text
 						if (text) {
@@ -1703,8 +1728,16 @@ export class Cline {
 						try {
 							if (block.partial) {
 								// update gui message
+								let toolProgressStatus
+								if (this.diffStrategy && this.diffStrategy.getProgressStatus) {
+									toolProgressStatus = this.diffStrategy.getProgressStatus(block)
+								}
+
 								const partialMessage = JSON.stringify(sharedMessageProps)
-								await this.ask("tool", partialMessage, block.partial).catch(() => {})
+
+								await this.ask("tool", partialMessage, block.partial, toolProgressStatus).catch(
+									() => {},
+								)
 								break
 							} else {
 								if (!relPath) {
@@ -1799,7 +1832,12 @@ export class Cline {
 									diff: diffContent,
 								} satisfies ClineSayTool)
 
-								const didApprove = await askApproval("tool", completeMessage)
+								let toolProgressStatus
+								if (this.diffStrategy && this.diffStrategy.getProgressStatus) {
+									toolProgressStatus = this.diffStrategy.getProgressStatus(block, diffResult)
+								}
+
+								const didApprove = await askApproval("tool", completeMessage, toolProgressStatus)
 								if (!didApprove) {
 									await this.diffViewProvider.revertChanges() // This likely handles closing the diff view
 									break
@@ -2508,6 +2546,7 @@ export class Cline {
 					}
 					case "execute_command": {
 						const command: string | undefined = block.params.command
+						const customCwd: string | undefined = block.params.cwd
 						try {
 							if (block.partial) {
 								await this.ask("command", removeClosingTag("command", command), block.partial).catch(
@@ -2541,7 +2580,7 @@ export class Cline {
 								if (!didApprove) {
 									break
 								}
-								const [userRejected, result] = await this.executeCommandTool(command)
+								const [userRejected, result] = await this.executeCommandTool(command, customCwd)
 								if (userRejected) {
 									this.didRejectTool = true
 								}
@@ -3173,7 +3212,7 @@ export class Cline {
 					cacheReads: cacheReadTokens,
 					cost:
 						totalCost ??
-						calculateApiCost(
+						calculateApiCostAnthropic(
 							this.api.getModel().info,
 							inputTokens,
 							outputTokens,
@@ -3447,6 +3486,8 @@ export class Cline {
 	async getEnvironmentDetails(includeFileDetails: boolean = false) {
 		let details = ""
 
+		const { terminalOutputLineLimit } = (await this.providerRef.deref()?.getState()) ?? {}
+
 		// It could be useful for cline to know if the user went from one or no file to another between messages, so we always include this context
 		details += "\n\n# VSCode Visible Files"
 		const visibleFilePaths = vscode.window.visibleTextEditors
@@ -3486,20 +3527,23 @@ export class Cline {
 			details += "\n(No open tabs)"
 		}
 
-		const busyTerminals = this.terminalManager.getTerminals(true)
-		const inactiveTerminals = this.terminalManager.getTerminals(false)
-		// const allTerminals = [...busyTerminals, ...inactiveTerminals]
+		// Get task-specific and background terminals
+		const busyTerminals = [
+			...TerminalRegistry.getTerminals(true, this.taskId),
+			...TerminalRegistry.getBackgroundTerminals(true),
+		]
+		const inactiveTerminals = [
+			...TerminalRegistry.getTerminals(false, this.taskId),
+			...TerminalRegistry.getBackgroundTerminals(false),
+		]
 
 		if (busyTerminals.length > 0 && this.didEditFile) {
-			//  || this.didEditFile
 			await delay(300) // delay after saving file to let terminals catch up
 		}
 
-		// let terminalWasBusy = false
 		if (busyTerminals.length > 0) {
 			// wait for terminals to cool down
-			// terminalWasBusy = allTerminals.some((t) => this.terminalManager.isProcessHot(t.id))
-			await pWaitFor(() => busyTerminals.every((t) => !this.terminalManager.isProcessHot(t.id)), {
+			await pWaitFor(() => busyTerminals.every((t) => !TerminalRegistry.isProcessHot(t.id)), {
 				interval: 100,
 				timeout: 15_000,
 			}).catch(() => {})
@@ -3530,32 +3574,50 @@ export class Cline {
 			// terminals are cool, let's retrieve their output
 			terminalDetails += "\n\n# Actively Running Terminals"
 			for (const busyTerminal of busyTerminals) {
-				terminalDetails += `\n## Original command: \`${busyTerminal.lastCommand}\``
-				const newOutput = this.terminalManager.readLine(busyTerminal.id)
+				terminalDetails += `\n## Original command: \`${busyTerminal.getLastCommand()}\``
+				let newOutput = TerminalRegistry.getUnretrievedOutput(busyTerminal.id)
 				if (newOutput) {
+					newOutput = Terminal.compressTerminalOutput(newOutput, terminalOutputLineLimit)
 					terminalDetails += `\n### New Output\n${newOutput}`
 				} else {
 					// details += `\n(Still running, no new output)` // don't want to show this right after running the command
 				}
 			}
 		}
-		// only show inactive terminals if there's output to show
-		if (inactiveTerminals.length > 0) {
-			const inactiveTerminalOutputs = new Map<number, string>()
-			for (const inactiveTerminal of inactiveTerminals) {
-				const newOutput = this.terminalManager.readLine(inactiveTerminal.id)
-				if (newOutput) {
-					inactiveTerminalOutputs.set(inactiveTerminal.id, newOutput)
-				}
-			}
-			if (inactiveTerminalOutputs.size > 0) {
-				terminalDetails += "\n\n# Inactive Terminals"
-				for (const [terminalId, newOutput] of inactiveTerminalOutputs) {
-					const inactiveTerminal = inactiveTerminals.find((t) => t.id === terminalId)
-					if (inactiveTerminal) {
-						terminalDetails += `\n## ${inactiveTerminal.lastCommand}`
-						terminalDetails += `\n### New Output\n${newOutput}`
+
+		// First check if any inactive terminals in this task have completed processes with output
+		const terminalsWithOutput = inactiveTerminals.filter((terminal) => {
+			const completedProcesses = terminal.getProcessesWithOutput()
+			return completedProcesses.length > 0
+		})
+
+		// Only add the header if there are terminals with output
+		if (terminalsWithOutput.length > 0) {
+			terminalDetails += "\n\n# Inactive Terminals with Completed Process Output"
+
+			// Process each terminal with output
+			for (const inactiveTerminal of terminalsWithOutput) {
+				let terminalOutputs: string[] = []
+
+				// Get output from completed processes queue
+				const completedProcesses = inactiveTerminal.getProcessesWithOutput()
+				for (const process of completedProcesses) {
+					let output = process.getUnretrievedOutput()
+					if (output) {
+						output = Terminal.compressTerminalOutput(output, terminalOutputLineLimit)
+						terminalOutputs.push(`Command: \`${process.command}\`\n${output}`)
 					}
+				}
+
+				// Clean the queue after retrieving output
+				inactiveTerminal.cleanCompletedProcessQueue()
+
+				// Add this terminal's outputs to the details
+				if (terminalOutputs.length > 0) {
+					terminalDetails += `\n## Terminal ${inactiveTerminal.id}`
+					terminalOutputs.forEach((output, index) => {
+						terminalDetails += `\n### New Output\n${output}`
+					})
 				}
 			}
 		}
@@ -3602,13 +3664,12 @@ export class Cline {
 			customModePrompts,
 			experiments = {} as Record<ExperimentId, boolean>,
 			customInstructions: globalCustomInstructions,
-			preferredLanguage,
 		} = (await this.providerRef.deref()?.getState()) ?? {}
 		const currentMode = mode ?? defaultModeSlug
 		const modeDetails = await getFullModeDetails(currentMode, customModes, customModePrompts, {
 			cwd,
 			globalCustomInstructions,
-			preferredLanguage,
+			language: formatLanguage(vscode.env.language),
 		})
 		details += `\n\n# Current Mode\n`
 		details += `<slug>${currentMode}</slug>\n`
@@ -3798,6 +3859,8 @@ export class Cline {
 			return
 		}
 
+		telemetryService.captureCheckpointDiffed(this.taskId)
+
 		if (!previousCommitHash && mode === "checkpoint") {
 			const previousCheckpoint = this.clineMessages
 				.filter(({ say }) => say === "checkpoint_saved")
@@ -3849,6 +3912,8 @@ export class Cline {
 			return
 		}
 
+		telemetryService.captureCheckpointCreated(this.taskId)
+
 		// Start the checkpoint process in the background.
 		service.saveCheckpoint(`Task: ${this.taskId}, Time: ${Date.now()}`).catch((err) => {
 			console.error("[Cline#checkpointSave] caught unexpected error, disabling checkpoints", err)
@@ -3879,6 +3944,8 @@ export class Cline {
 
 		try {
 			await service.restoreCheckpoint(commitHash)
+
+			telemetryService.captureCheckpointRestored(this.taskId)
 
 			await this.providerRef.deref()?.postMessageToWebview({ type: "currentCheckpointUpdated", text: commitHash })
 

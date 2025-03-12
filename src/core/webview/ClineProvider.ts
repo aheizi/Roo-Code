@@ -6,22 +6,27 @@ import os from "os"
 import pWaitFor from "p-wait-for"
 import * as path from "path"
 import * as vscode from "vscode"
-import simpleGit from "simple-git"
 
 import { setPanel } from "../../activate/registerCommands"
 import { ApiConfiguration, ApiProvider, ModelInfo, API_CONFIG_KEYS } from "../../shared/api"
-import { findLast } from "../../shared/array"
-import { supportPrompt } from "../../shared/support-prompt"
-import { GlobalFileNames } from "../../shared/globalFileNames"
-import { SecretKey, GlobalStateKey, SECRET_KEYS, GLOBAL_STATE_KEYS } from "../../shared/globalState"
-import { HistoryItem } from "../../shared/HistoryItem"
 import { CheckpointStorage } from "../../shared/checkpoints"
+import { findLast } from "../../shared/array"
+import { CustomSupportPrompts, supportPrompt } from "../../shared/support-prompt"
+import { GlobalFileNames } from "../../shared/globalFileNames"
+import {
+	SecretKey,
+	GlobalStateKey,
+	SECRET_KEYS,
+	GLOBAL_STATE_KEYS,
+	ConfigurationValues,
+} from "../../shared/globalState"
+import { HistoryItem } from "../../shared/HistoryItem"
 import { ApiConfigMeta, ExtensionMessage } from "../../shared/ExtensionMessage"
 import { checkoutDiffPayloadSchema, checkoutRestorePayloadSchema, WebviewMessage } from "../../shared/WebviewMessage"
-import { Mode, PromptComponent, defaultModeSlug, ModeConfig } from "../../shared/modes"
+import { Mode, CustomModePrompts, PromptComponent, defaultModeSlug, ModeConfig } from "../../shared/modes"
 import { checkExistKey } from "../../shared/checkExistApiConfig"
 import { EXPERIMENT_IDS, experiments as Experiments, experimentDefault, ExperimentId } from "../../shared/experiments"
-import { TERMINAL_OUTPUT_LIMIT } from "../../shared/terminal"
+import { formatLanguage } from "../../shared/language"
 import { downloadTask } from "../../integrations/misc/export-markdown"
 import { openFile, openImage } from "../../integrations/misc/open-file"
 import { selectImages } from "../../integrations/misc/process-images"
@@ -30,6 +35,8 @@ import WorkspaceTracker from "../../integrations/workspace/WorkspaceTracker"
 import { McpHub } from "../../services/mcp/McpHub"
 import { McpServerManager } from "../../services/mcp/McpServerManager"
 import { ShadowCheckpointService } from "../../services/checkpoints/ShadowCheckpointService"
+import { BrowserSession } from "../../services/browser/BrowserSession"
+import { discoverChromeInstances } from "../../services/browser/browserDiscovery"
 import { fileExistsAtPath } from "../../utils/fs"
 import { playSound, setSoundEnabled, setSoundVolume } from "../../utils/sound"
 import { singleCompletionHandler } from "../../utils/single-completion-handler"
@@ -386,6 +393,11 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 
 	async resolveWebviewView(webviewView: vscode.WebviewView | vscode.WebviewPanel) {
 		this.outputChannel.appendLine("Resolving webview view")
+
+		if (!this.contextProxy.isInitialized) {
+			await this.contextProxy.initialize()
+		}
+
 		this.view = webviewView
 
 		// Set panel reference according to webview type
@@ -1262,6 +1274,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 						await this.postStateToWebview()
 						break
 					case "checkpointStorage":
+						console.log(`[ClineProvider] checkpointStorage: ${message.text}`)
 						const checkpointStorage = message.text ?? "task"
 						await this.updateGlobalState("checkpointStorage", checkpointStorage)
 						await this.postStateToWebview()
@@ -1270,6 +1283,105 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 						const browserViewportSize = message.text ?? "900x600"
 						await this.updateGlobalState("browserViewportSize", browserViewportSize)
 						await this.postStateToWebview()
+						break
+					case "remoteBrowserHost":
+						await this.updateGlobalState("remoteBrowserHost", message.text)
+						await this.postStateToWebview()
+						break
+					case "remoteBrowserEnabled":
+						// Store the preference in global state
+						// remoteBrowserEnabled now means "enable remote browser connection"
+						await this.updateGlobalState("remoteBrowserEnabled", message.bool ?? false)
+						// If disabling remote browser connection, clear the remoteBrowserHost
+						if (!message.bool) {
+							await this.updateGlobalState("remoteBrowserHost", undefined)
+						}
+						await this.postStateToWebview()
+						break
+					case "testBrowserConnection":
+						try {
+							const browserSession = new BrowserSession(this.context)
+							// If no text is provided, try auto-discovery
+							if (!message.text) {
+								try {
+									const discoveredHost = await discoverChromeInstances()
+									if (discoveredHost) {
+										// Test the connection to the discovered host
+										const result = await browserSession.testConnection(discoveredHost)
+										// Send the result back to the webview
+										await this.postMessageToWebview({
+											type: "browserConnectionResult",
+											success: result.success,
+											text: `Auto-discovered and tested connection to Chrome at ${discoveredHost}: ${result.message}`,
+											values: { endpoint: result.endpoint },
+										})
+									} else {
+										await this.postMessageToWebview({
+											type: "browserConnectionResult",
+											success: false,
+											text: "No Chrome instances found on the network. Make sure Chrome is running with remote debugging enabled (--remote-debugging-port=9222).",
+										})
+									}
+								} catch (error) {
+									await this.postMessageToWebview({
+										type: "browserConnectionResult",
+										success: false,
+										text: `Error during auto-discovery: ${error instanceof Error ? error.message : String(error)}`,
+									})
+								}
+							} else {
+								// Test the provided URL
+								const result = await browserSession.testConnection(message.text)
+
+								// Send the result back to the webview
+								await this.postMessageToWebview({
+									type: "browserConnectionResult",
+									success: result.success,
+									text: result.message,
+									values: { endpoint: result.endpoint },
+								})
+							}
+						} catch (error) {
+							await this.postMessageToWebview({
+								type: "browserConnectionResult",
+								success: false,
+								text: `Error testing connection: ${error instanceof Error ? error.message : String(error)}`,
+							})
+						}
+						break
+					case "discoverBrowser":
+						try {
+							const discoveredHost = await discoverChromeInstances()
+
+							if (discoveredHost) {
+								// Don't update the remoteBrowserHost state when auto-discovering
+								// This way we don't override the user's preference
+
+								// Test the connection to get the endpoint
+								const browserSession = new BrowserSession(this.context)
+								const result = await browserSession.testConnection(discoveredHost)
+
+								// Send the result back to the webview
+								await this.postMessageToWebview({
+									type: "browserConnectionResult",
+									success: true,
+									text: `Successfully discovered and connected to Chrome at ${discoveredHost}`,
+									values: { endpoint: result.endpoint },
+								})
+							} else {
+								await this.postMessageToWebview({
+									type: "browserConnectionResult",
+									success: false,
+									text: "No Chrome instances found on the network. Make sure Chrome is running with remote debugging enabled (--remote-debugging-port=9222).",
+								})
+							}
+						} catch (error) {
+							await this.postMessageToWebview({
+								type: "browserConnectionResult",
+								success: false,
+								text: `Error discovering browser: ${error instanceof Error ? error.message : String(error)}`,
+							})
+						}
 						break
 					case "fuzzyMatchThreshold":
 						await this.updateGlobalState("fuzzyMatchThreshold", message.value)
@@ -1287,16 +1399,12 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 						await this.updateGlobalState("rateLimitSeconds", message.value ?? 0)
 						await this.postStateToWebview()
 						break
-					case "preferredLanguage":
-						await this.updateGlobalState("preferredLanguage", message.text)
-						await this.postStateToWebview()
-						break
 					case "writeDelayMs":
 						await this.updateGlobalState("writeDelayMs", message.value)
 						await this.postStateToWebview()
 						break
-					case "terminalOutputLimit":
-						await this.updateGlobalState("terminalOutputLimit", message.value)
+					case "terminalOutputLineLimit":
+						await this.updateGlobalState("terminalOutputLineLimit", message.value)
 						await this.postStateToWebview()
 						break
 					case "mode":
@@ -1828,13 +1936,13 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 				apiConfiguration,
 				customModePrompts,
 				customInstructions,
-				preferredLanguage,
 				browserViewportSize,
 				diffEnabled,
 				mcpEnabled,
 				fuzzyMatchThreshold,
 				experiments,
 				enableMcpServerCreation,
+				browserToolEnabled,
 			} = await this.getState()
 
 			// Create diffStrategy based on current model and settings
@@ -1850,10 +1958,14 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 
 			const rooIgnoreInstructions = this.getCurrentCline()?.rooIgnoreController?.getInstructions()
 
+			// Determine if browser tools can be used based on model support and user settings
+			const modelSupportsComputerUse = this.getCurrentCline()?.api.getModel().info.supportsComputerUse ?? false
+			const canUseBrowserTool = modelSupportsComputerUse && (browserToolEnabled ?? true)
+
 			const systemPrompt = await SYSTEM_PROMPT(
 				this.context,
 				cwd,
-				apiConfiguration.openRouterModelInfo?.supportsComputerUse ?? false,
+				canUseBrowserTool,
 				mcpEnabled ? this.mcpHub : undefined,
 				diffStrategy,
 				browserViewportSize ?? "900x600",
@@ -1861,7 +1973,6 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 				customModePrompts,
 				customModes,
 				customInstructions,
-				preferredLanguage,
 				diffEnabled,
 				experiments,
 				enableMcpServerCreation,
@@ -1916,18 +2027,19 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 	}
 
 	private async updateApiConfiguration(apiConfiguration: ApiConfiguration) {
-		// Update mode's default config
+		// Update mode's default config.
 		const { mode } = await this.getState()
+
 		if (mode) {
 			const currentApiConfigName = await this.getGlobalState("currentApiConfigName")
 			const listApiConfig = await this.configManager.listConfig()
 			const config = listApiConfig?.find((c) => c.name === currentApiConfigName)
+
 			if (config?.id) {
 				await this.configManager.setModeConfig(mode, config.id)
 			}
 		}
 
-		// Use the new setValues method to handle routing values to secrets or global state
 		await this.contextProxy.setValues(apiConfiguration)
 
 		if (this.getCurrentCline()) {
@@ -1937,8 +2049,16 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 
 	async cancelTask() {
 		if (this.getCurrentCline()) {
-			const { historyItem } = await this.getTaskWithId(this.getCurrentCline()!.taskId)
-			this.getCurrentCline()!.abortTask()
+			const currentCline = this.getCurrentCline()!
+			const { historyItem } = await this.getTaskWithId(currentCline.taskId)
+
+			// Store parent task information if this is a subtask
+			// Check if this is a subtask by seeing if it has a parent task
+			const parentTask = currentCline.getParentTask()
+			const isSubTask = parentTask !== undefined
+			const rootTask = isSubTask ? currentCline.getRootTask() : undefined
+
+			currentCline.abortTask()
 
 			await pWaitFor(
 				() =>
@@ -1965,6 +2085,18 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 
 			// Clears task again, so we need to abortTask manually above.
 			await this.initClineWithHistoryItem(historyItem)
+
+			// Restore parent-child relationship if this was a subtask
+			if (isSubTask && this.getCurrentCline() && parentTask) {
+				this.getCurrentCline()!.setSubTask()
+				this.getCurrentCline()!.setParentTask(parentTask)
+				if (rootTask) {
+					this.getCurrentCline()!.setRootTask(rootTask)
+				}
+				this.log(
+					`[subtasks] Restored parent-child relationship for task: ${this.getCurrentCline()!.getTaskNumber()}`,
+				)
+			}
 		}
 	}
 
@@ -1980,11 +2112,24 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 	// MCP
 
 	async ensureMcpServersDirectoryExists(): Promise<string> {
-		const mcpServersDir = path.join(os.homedir(), "Documents", "Cline", "MCP")
+		// Get platform-specific application data directory
+		let mcpServersDir: string
+		if (process.platform === "win32") {
+			// Windows: %APPDATA%\Roo-Code\MCP
+			mcpServersDir = path.join(os.homedir(), "AppData", "Roaming", "Roo-Code", "MCP")
+		} else if (process.platform === "darwin") {
+			// macOS: ~/Documents/Cline/MCP
+			mcpServersDir = path.join(os.homedir(), "Documents", "Cline", "MCP")
+		} else {
+			// Linux: ~/.local/share/Cline/MCP
+			mcpServersDir = path.join(os.homedir(), ".local", "share", "Roo-Code", "MCP")
+		}
+
 		try {
 			await fs.mkdir(mcpServersDir, { recursive: true })
 		} catch (error) {
-			return "~/Documents/Cline/MCP" // in case creating a directory in documents fails for whatever reason (e.g. permissions) - this is fine since this path is only ever used in the system prompt
+			// Fallback to a relative path if directory creation fails
+			return path.join(os.homedir(), ".roo-code", "mcp")
 		}
 		return mcpServersDir
 	}
@@ -2201,9 +2346,10 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 			soundVolume,
 			browserViewportSize,
 			screenshotQuality,
-			preferredLanguage,
+			remoteBrowserHost,
+			remoteBrowserEnabled,
 			writeDelayMs,
-			terminalOutputLimit,
+			terminalOutputLineLimit,
 			fuzzyMatchThreshold,
 			mcpEnabled,
 			enableMcpServerCreation,
@@ -2222,6 +2368,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 			browserToolEnabled,
 			telemetrySetting,
 			showRooIgnoredFiles,
+			language,
 		} = await this.getState()
 		const telemetryKey = process.env.POSTHOG_API_KEY
 		const machineId = vscode.env.machineId
@@ -2259,9 +2406,10 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 			soundVolume: soundVolume ?? 0.5,
 			browserViewportSize: browserViewportSize ?? "900x600",
 			screenshotQuality: screenshotQuality ?? 75,
-			preferredLanguage: preferredLanguage ?? "English",
+			remoteBrowserHost,
+			remoteBrowserEnabled: remoteBrowserEnabled ?? false,
 			writeDelayMs: writeDelayMs ?? 1000,
-			terminalOutputLimit: terminalOutputLimit ?? TERMINAL_OUTPUT_LIMIT,
+			terminalOutputLineLimit: terminalOutputLineLimit ?? 500,
 			fuzzyMatchThreshold: fuzzyMatchThreshold ?? 1.0,
 			mcpEnabled: mcpEnabled ?? true,
 			enableMcpServerCreation: enableMcpServerCreation ?? true,
@@ -2285,6 +2433,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 			telemetryKey,
 			machineId,
 			showRooIgnoredFiles: showRooIgnoredFiles ?? true,
+			language,
 		}
 	}
 
@@ -2412,41 +2561,14 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 			soundVolume: stateValues.soundVolume,
 			browserViewportSize: stateValues.browserViewportSize ?? "900x600",
 			screenshotQuality: stateValues.screenshotQuality ?? 75,
+			remoteBrowserHost: stateValues.remoteBrowserHost,
+			remoteBrowserEnabled: stateValues.remoteBrowserEnabled ?? false,
 			fuzzyMatchThreshold: stateValues.fuzzyMatchThreshold ?? 1.0,
 			writeDelayMs: stateValues.writeDelayMs ?? 1000,
-			terminalOutputLimit: stateValues.terminalOutputLimit ?? TERMINAL_OUTPUT_LIMIT,
+			terminalOutputLineLimit: stateValues.terminalOutputLineLimit ?? 500,
 			mode: stateValues.mode ?? defaultModeSlug,
-			preferredLanguage:
-				stateValues.preferredLanguage ??
-				(() => {
-					// Get VSCode's locale setting
-					const vscodeLang = vscode.env.language
-					// Map VSCode locale to our supported languages
-					const langMap: { [key: string]: string } = {
-						en: "English",
-						ar: "Arabic",
-						"pt-br": "Brazilian Portuguese",
-						ca: "Catalan",
-						cs: "Czech",
-						fr: "French",
-						de: "German",
-						hi: "Hindi",
-						hu: "Hungarian",
-						it: "Italian",
-						ja: "Japanese",
-						ko: "Korean",
-						pl: "Polish",
-						pt: "Portuguese",
-						ru: "Russian",
-						zh: "Simplified Chinese",
-						"zh-cn": "Simplified Chinese",
-						es: "Spanish",
-						"zh-tw": "Traditional Chinese",
-						tr: "Turkish",
-					}
-					// Return mapped language or default to English
-					return langMap[vscodeLang] ?? langMap[vscodeLang.split("-")[0]] ?? "English"
-				})(),
+			// Pass the VSCode language code directly
+			language: formatLanguage(vscode.env.language),
 			mcpEnabled: stateValues.mcpEnabled ?? true,
 			enableMcpServerCreation: stateValues.enableMcpServerCreation ?? true,
 			alwaysApproveResubmit: stateValues.alwaysApproveResubmit ?? false,
@@ -2484,11 +2606,11 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 
 	// global
 
-	async updateGlobalState(key: GlobalStateKey, value: any) {
+	public async updateGlobalState(key: GlobalStateKey, value: any) {
 		await this.contextProxy.updateGlobalState(key, value)
 	}
 
-	async getGlobalState(key: GlobalStateKey) {
+	public async getGlobalState(key: GlobalStateKey) {
 		return await this.contextProxy.getGlobalState(key)
 	}
 
@@ -2500,6 +2622,12 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 
 	private async getSecret(key: SecretKey) {
 		return await this.contextProxy.getSecret(key)
+	}
+
+	// global + secret
+
+	public async setValues(values: Partial<ConfigurationValues>) {
+		await this.contextProxy.setValues(values)
 	}
 
 	// dev
@@ -2574,6 +2702,15 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 		// Add API provider
 		if (apiConfiguration?.apiProvider) {
 			properties.apiProvider = apiConfiguration.apiProvider
+		}
+
+		// Add model ID if available
+		const currentCline = this.getCurrentCline()
+		if (currentCline?.api) {
+			const { id: modelId } = currentCline.api.getModel()
+			if (modelId) {
+				properties.modelId = modelId
+			}
 		}
 
 		return properties
