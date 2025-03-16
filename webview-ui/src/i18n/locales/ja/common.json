@@ -4,5 +4,6 @@
 	"changeSettings": "設定の下部でいつでも変更できます",
 	"settings": "設定",
 	"allow": "許可",
-	"deny": "拒否"
+	"deny": "拒否",
+	"cancel": "キャンセル"
 }

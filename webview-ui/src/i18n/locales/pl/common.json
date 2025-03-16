@@ -4,5 +4,6 @@
 	"changeSettings": "Zawsze możesz to zmienić na dole ustawień",
 	"settings": "ustawienia",
 	"allow": "Zezwól",
-	"deny": "Odmów"
+	"deny": "Odmów",
+	"cancel": "Anuluj"
 }

@@ -5,6 +5,8 @@
 	"cache": "Mezipaměť: +{{writes}} → {{reads}}",
 	"apiCost": "Náklady API: ${{cost}}",
 	"history": "Historie",
+	"exitSelectionMode": "Ukončit režim výběru",
+	"enterSelectionMode": "Spustit režim výběru",
 	"done": "Hotovo",
 	"searchPlaceholder": "Vyhledat v historii...",
 	"newest": "Nejnovější",
@@ -21,5 +23,16 @@
 	"deleteTask": "Smazat úkol",
 	"deleteTaskMessage": "Opravdu chcete smazat tento úkol? Tuto akci nelze vrátit zpět.",
 	"cancel": "Zrušit",
-	"delete": "Smazat"
+	"delete": "Smazat",
+	"exitSelection": "Ukončit výběr",
+	"selectionMode": "Režim výběru",
+	"deselectAll": "Zrušit výběr všech",
+	"selectAll": "Vybrat vše",
+	"selectedItems": "Vybráno {{selected}}/{{total}} položek",
+	"clearSelection": "Vyčistit výběr",
+	"deleteSelected": "Smazat vybrané",
+	"deleteTasks": "Smazat úkoly",
+	"confirmDeleteTasks": "Opravdu chcete smazat {{count}} úkolů?",
+	"deleteTasksWarning": "Smazané úkoly nelze obnovit. Prosím, ujistěte se, že chcete pokračovat.",
+	"deleteItems": "Smazat {{count}} položek"
 }

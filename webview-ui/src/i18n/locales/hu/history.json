@@ -5,6 +5,8 @@
 	"cache": "Gyorsítótár: +{{writes}} → {{reads}}",
 	"apiCost": "API költség: ${{cost}}",
 	"history": "Előzmények",
+	"exitSelectionMode": "Kijelölési mód bezárása",
+	"enterSelectionMode": "Kijelölési mód megnyitása",
 	"done": "Kész",
 	"searchPlaceholder": "Előzmények keresése...",
 	"newest": "Legújabb",
@@ -21,5 +23,16 @@
 	"deleteTask": "Feladat törlése",
 	"deleteTaskMessage": "Biztosan törölni szeretné ezt a feladatot? Ez a művelet nem vonható vissza.",
 	"cancel": "Mégsem",
-	"delete": "Törlés"
+	"delete": "Törlés",
+	"exitSelection": "Kijelölésből kilépés",
+	"selectionMode": "Kijelölési mód",
+	"deselectAll": "Összes kijelölés megszüntetése",
+	"selectAll": "Összes kijelölése",
+	"selectedItems": "{{selected}}/{{total}} elem kijelölve",
+	"clearSelection": "Kijelölés törlése",
+	"deleteSelected": "Kijelöltek törlése",
+	"deleteTasks": "Feladatok törlése",
+	"confirmDeleteTasks": "Biztosan törölni szeretne {{count}} feladatot?",
+	"deleteTasksWarning": "A törölt feladatok nem állíthatók helyre. Kérjük, győződjön meg arról, hogy folytatni kívánja.",
+	"deleteItems": "{{count}} elem törlése"
 }

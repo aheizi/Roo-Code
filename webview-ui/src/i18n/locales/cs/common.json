@@ -4,5 +4,6 @@
 	"changeSettings": "Toto nastavení můžete vždy změnit v dolní části nastavení",
 	"settings": "nastavení",
 	"allow": "Povolit",
-	"deny": "Zakázat"
+	"deny": "Zakázat",
+	"cancel": "Zrušit"
 }

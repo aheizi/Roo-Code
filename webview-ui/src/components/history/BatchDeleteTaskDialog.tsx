@@ -1,4 +1,5 @@
 import { useCallback } from "react"
+import { useAppTranslation } from "@/i18n/TranslationContext"
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -18,6 +19,7 @@ interface BatchDeleteTaskDialogProps extends AlertDialogProps {
 }
 
 export const BatchDeleteTaskDialog = ({ taskIds, ...props }: BatchDeleteTaskDialogProps) => {
+	const { t } = useAppTranslation()
 	const { onOpenChange } = props
 
 	const onDelete = useCallback(() => {
@@ -31,24 +33,22 @@ export const BatchDeleteTaskDialog = ({ taskIds, ...props }: BatchDeleteTaskDial
 		<AlertDialog {...props}>
 			<AlertDialogContent className="max-w-md">
 				<AlertDialogHeader>
-					<AlertDialogTitle>Delete Tasks</AlertDialogTitle>
+					<AlertDialogTitle>{t("history:deleteTasks")}</AlertDialogTitle>
 					<AlertDialogDescription className="text-vscode-foreground">
-						<div className="mb-2">
-							Are you sure you want to delete <strong>{taskIds.length}</strong> selected tasks?
-						</div>
+						<div className="mb-2">{t("history:confirmDeleteTasks", { count: taskIds.length })}</div>
 						<div className="text-vscode-editor-foreground bg-vscode-editor-background p-2 rounded text-sm">
-							This action cannot be undone. All selected tasks will be permanently deleted.
+							{t("history:deleteTasksWarning")}
 						</div>
 					</AlertDialogDescription>
 				</AlertDialogHeader>
 				<AlertDialogFooter>
 					<AlertDialogCancel asChild>
-						<Button variant="secondary">Cancel</Button>
+						<Button variant="secondary">{t("common:cancel")}</Button>
 					</AlertDialogCancel>
 					<AlertDialogAction asChild>
 						<Button variant="destructive" onClick={onDelete}>
 							<span className="codicon codicon-trash mr-1"></span>
-							Delete {taskIds.length} items
+							{t("history:deleteItems", { count: taskIds.length })}
 						</Button>
 					</AlertDialogAction>
 				</AlertDialogFooter>

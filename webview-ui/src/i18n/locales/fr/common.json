@@ -4,5 +4,6 @@
 	"changeSettings": "Vous pouvez toujours modifier cela en bas des paramètres",
 	"settings": "paramètres",
 	"allow": "Autoriser",
-	"deny": "Refuser"
+	"deny": "Refuser",
+	"cancel": "Annuler"
 }

@@ -4,5 +4,6 @@
 	"changeSettings": "Bunu her zaman ayarların altından değiştirebilirsiniz",
 	"settings": "ayarlar",
 	"allow": "İzin Ver",
-	"deny": "Reddet"
+	"deny": "Reddet",
+	"cancel": "İptal"
 }

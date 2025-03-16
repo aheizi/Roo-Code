@@ -4,5 +4,6 @@
 	"changeSettings": "Siempre puedes cambiar esto en la parte inferior de la configuración",
 	"settings": "configuración",
 	"allow": "Permitir",
-	"deny": "Denegar"
+	"deny": "Denegar",
+	"cancel": "Cancelar"
 }

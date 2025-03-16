@@ -4,5 +4,6 @@
 	"changeSettings": "您隨時可以在設置底部更改此選項",
 	"settings": "設置",
 	"allow": "允許",
-	"deny": "拒絕"
+	"deny": "拒絕",
+	"cancel": "取消"
 }

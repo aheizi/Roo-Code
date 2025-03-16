@@ -5,6 +5,8 @@
 	"cache": "التخزين المؤقت: +{{writes}} → {{reads}}",
 	"apiCost": "تكلفة API: ${{cost}}",
 	"history": "السجل",
+	"exitSelectionMode": "الخروج من وضع التحديد",
+	"enterSelectionMode": "الدخول إلى وضع التحديد",
 	"done": "تم",
 	"searchPlaceholder": "البحث في السجل...",
 	"newest": "الأحدث",
@@ -21,5 +23,16 @@
 	"deleteTask": "حذف المهمة",
 	"deleteTaskMessage": "هل أنت متأكد من حذف هذه المهمة؟ لا يمكن التراجع عن هذا الإجراء.",
 	"cancel": "إلغاء",
-	"delete": "حذف"
+	"delete": "حذف",
+	"exitSelection": "الخروج من التحديد",
+	"selectionMode": "وضع التحديد",
+	"deselectAll": "إلغاء تحديد الكل",
+	"selectAll": "تحديد الكل",
+	"selectedItems": "تم تحديد {{selected}}/{{total}} عنصر",
+	"clearSelection": "مسح التحديد",
+	"deleteSelected": "حذف المحدد",
+	"deleteTasks": "حذف المهام",
+	"confirmDeleteTasks": "هل أنت متأكد من حذف {{count}} مهمة؟",
+	"deleteTasksWarning": "لا يمكن استعادة المهام المحذوفة. يرجى التأكد من المتابعة.",
+	"deleteItems": "حذف {{count}} عنصر"
 }

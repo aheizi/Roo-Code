@@ -4,5 +4,6 @@
 	"changeSettings": "You can always change this at the bottom of the settings",
 	"settings": "settings",
 	"allow": "Allow",
-	"deny": "Deny"
+	"deny": "Deny",
+	"cancel": "Cancel"
 }

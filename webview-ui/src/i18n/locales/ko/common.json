@@ -4,5 +4,6 @@
 	"changeSettings": "설정 하단에서 언제든지 변경할 수 있습니다",
 	"settings": "설정",
 	"allow": "허용",
-	"deny": "거부"
+	"deny": "거부",
+	"cancel": "취소"
 }

@@ -79,11 +79,15 @@ const HistoryView = ({ onDone }: HistoryViewProps) => {
 						<VSCodeButton
 							appearance={isSelectionMode ? "primary" : "secondary"}
 							onClick={toggleSelectionMode}
-							title={isSelectionMode ? "Exit Selection Mode" : "Enter Selection Mode"}>
+							title={
+								isSelectionMode
+									? `${t("history:exitSelectionMode")}`
+									: `${t("history:enterSelectionMode")}`
+							}>
 							<span
 								className={`codicon ${isSelectionMode ? "codicon-check-all" : "codicon-checklist"}`}
 							/>
-							{isSelectionMode ? "Exit Selection" : "Selection Mode"}
+							{isSelectionMode ? t("history:exitSelection") : t("history:selectionMode")}
 						</VSCodeButton>
 						<VSCodeButton onClick={onDone}>{t("history:done")}</VSCodeButton>
 					</div>
@@ -146,10 +150,12 @@ const HistoryView = ({ onDone }: HistoryViewProps) => {
 								onChange={(e) => toggleSelectAll((e.target as HTMLInputElement).checked)}
 							/>
 							<span className="ml-2 text-vscode-foreground">
-								{selectedTaskIds.length === tasks.length ? "Deselect All" : "Select All"}
+								{selectedTaskIds.length === tasks.length
+									? t("history:deselectAll")
+									: t("history:selectAll")}
 							</span>
 							<span className="ml-auto text-vscode-descriptionForeground text-xs">
-								Selected {selectedTaskIds.length}/{tasks.length} items
+								{t("history:selectedItems", { selected: selectedTaskIds.length, total: tasks.length })}
 							</span>
 						</div>
 					)}
@@ -405,14 +411,14 @@ const HistoryView = ({ onDone }: HistoryViewProps) => {
 			{isSelectionMode && selectedTaskIds.length > 0 && (
 				<div className="fixed bottom-0 left-0 right-0 bg-vscode-editor-background border-t border-vscode-panel-border p-2 flex justify-between items-center">
 					<div className="text-vscode-foreground">
-						Selected <span className="font-bold">{selectedTaskIds.length}</span> items
+						{t("history:selectedItems", { selected: selectedTaskIds.length, total: tasks.length })}
 					</div>
 					<div className="flex gap-2">
 						<VSCodeButton appearance="secondary" onClick={() => setSelectedTaskIds([])}>
-							Clear Selection
+							{t("history:clearSelection")}
 						</VSCodeButton>
 						<VSCodeButton appearance="primary" onClick={handleBatchDelete}>
-							Delete Selected
+							{t("history:deleteSelected")}
 						</VSCodeButton>
 					</div>
 				</div>

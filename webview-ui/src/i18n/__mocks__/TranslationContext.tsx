@@ -5,10 +5,14 @@ export const useAppTranslation = () => {
 	return {
 		t: (key: string, options?: Record<string, any>) => {
 			const translations: Record<string, string> = {
+				// Common translations
+				"common:cancel": "Cancel",
 				// History translations
 				"history:recentTasks": "Recent Tasks",
 				"history:viewAll": "View All",
 				"history:history": "History",
+				"history:exitSelectionMode": "Exit Selection Mode",
+				"history:enterSelectionMode": "Enter Selection Mode",
 				"history:done": "Done",
 				"history:searchPlaceholder": "Fuzzy search history...",
 				"history:newest": "Newest",
@@ -26,6 +30,19 @@ export const useAppTranslation = () => {
 				"history:deleteTaskMessage": "Are you sure you want to delete this task? This action cannot be undone.",
 				"history:cancel": "Cancel",
 				"history:delete": "Delete",
+				"history:exitSelection": "Exit Selection",
+				"history:selectionMode": "Selection Mode",
+				"history:deselectAll": "Deselect All",
+				"history:selectAll": "Select All",
+				"history:selectedItems": "Selected {selected}/{total} items",
+				"history:clearSelection": "Clear Selection",
+				"history:deleteSelected": "Delete Selected",
+				"history:deleteTasks": "Delete Tasks",
+				"history:confirmDeleteTasks":
+					"Are you sure you want to delete {count} tasks? This action cannot be undone.",
+				"history:deleteTasksWarning":
+					"Deleted tasks cannot be recovered. Please make sure you want to proceed.",
+				"history:deleteItems": "Delete {count} Items",
 			}
 
 			// Handle interpolation

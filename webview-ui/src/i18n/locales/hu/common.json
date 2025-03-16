@@ -4,5 +4,6 @@
 	"changeSettings": "Ezt bármikor megváltoztathatod a beállítások alján",
 	"settings": "beállítások",
 	"allow": "Engedélyez",
-	"deny": "Elutasít"
+	"deny": "Elutasít",
+	"cancel": "Mégse"
 }

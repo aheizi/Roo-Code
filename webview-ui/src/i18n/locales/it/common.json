@@ -4,5 +4,6 @@
 	"changeSettings": "Puoi sempre cambiare questo in fondo alle impostazioni",
 	"settings": "impostazioni",
 	"allow": "Consenti",
-	"deny": "Nega"
+	"deny": "Nega",
+	"cancel": "Annulla"
 }

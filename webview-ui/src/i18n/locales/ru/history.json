@@ -5,6 +5,8 @@
 	"cache": "Кэш: +{{writes}} → {{reads}}",
 	"apiCost": "Стоимость API: ${{cost}}",
 	"history": "История",
+	"exitSelectionMode": "Выйти из режима выбора",
+	"enterSelectionMode": "Войти в режим выбора",
 	"done": "Готово",
 	"searchPlaceholder": "Поиск по истории...",
 	"newest": "Новейшие",
@@ -21,5 +23,16 @@
 	"deleteTask": "Удалить задачу",
 	"deleteTaskMessage": "Вы уверены, что хотите удалить эту задачу? Это действие нельзя отменить.",
 	"cancel": "Отмена",
-	"delete": "Удалить"
+	"delete": "Удалить",
+	"exitSelection": "Выйти из выбора",
+	"selectionMode": "Режим выбора",
+	"deselectAll": "Снять все выделения",
+	"selectAll": "Выбрать все",
+	"selectedItems": "Выбрано {{selected}}/{{total}} элементов",
+	"clearSelection": "Очистить выбор",
+	"deleteSelected": "Удалить выбранные",
+	"deleteTasks": "Удалить задачи",
+	"confirmDeleteTasks": "Вы уверены, что хотите удалить {{count}} задач?",
+	"deleteTasksWarning": "Удаленные задачи не могут быть восстановлены. Пожалуйста, подтвердите, что хотите продолжить.",
+	"deleteItems": "Удалить {{count}} элементов"
 }
