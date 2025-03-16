@@ -977,9 +977,20 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 					case "deleteMultipleTasksWithIds": {
 						const ids = message.ids
 						if (Array.isArray(ids)) {
-							for (const id of ids) {
-								await this.deleteTaskWithId(id)
-							}
+							const deletePromises = ids.map(async (id) => {
+								try {
+									await this.deleteTaskWithId(id)
+									return { id, success: true }
+								} catch (error) {
+									this.outputChannel.appendLine(
+										`Failed to delete task ${id}: ${error instanceof Error ? error.message : String(error)}`,
+									)
+									return { id, success: false }
+								}
+							})
+
+							await Promise.all(deletePromises)
+							await this.postStateToWebview()
 						}
 						break
 					}
