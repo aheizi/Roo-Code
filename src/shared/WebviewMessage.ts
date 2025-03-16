@@ -98,6 +98,7 @@ export interface WebviewMessage {
 		| "checkpointRestore"
 		| "deleteMcpServer"
 		| "maxOpenTabsContext"
+		| "maxWorkspaceFiles"
 		| "humanRelayResponse"
 		| "humanRelayCancel"
 		| "browserToolEnabled"
@@ -132,18 +133,6 @@ export interface WebviewMessage {
 	source?: "global" | "project"
 	requestId?: string
 	ids?: string[]
-}
-
-// Human relay related message types
-export interface HumanRelayResponseMessage extends WebviewMessage {
-	type: "humanRelayResponse"
-	requestId: string
-	text: string
-}
-
-export interface HumanRelayCancelMessage extends WebviewMessage {
-	type: "humanRelayCancel"
-	requestId: string
 }
 
 export const checkoutDiffPayloadSchema = z.object({

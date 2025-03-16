@@ -72,6 +72,7 @@ export const GLOBAL_STATE_KEYS = [
 	"openRouterModelInfo",
 	"openRouterBaseUrl",
 	"openRouterUseMiddleOutTransform",
+	"googleGeminiBaseUrl",
 	"allowedCommands",
 	"soundEnabled",
 	"soundVolume",
@@ -115,6 +116,7 @@ export const GLOBAL_STATE_KEYS = [
 	"telemetrySetting",
 	"showRooIgnoredFiles",
 	"remoteBrowserEnabled",
+	"maxWorkspaceFiles",
 ] as const
 
 type CheckGlobalStateKeysExhaustiveness =

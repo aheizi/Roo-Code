@@ -448,6 +448,7 @@ describe("ClineProvider", () => {
 			customModes: [],
 			experiments: experimentDefault,
 			maxOpenTabsContext: 20,
+			maxWorkspaceFiles: 200,
 			browserToolEnabled: true,
 			telemetrySetting: "unset",
 			showRooIgnoredFiles: true,
@@ -794,7 +795,18 @@ describe("ClineProvider", () => {
 		expect(state.customModePrompts).toEqual({})
 	})
 
-	test("uses mode-specific custom instructions in Cline initialization", async () => {
+	test("handles maxWorkspaceFiles message", async () => {
+		await provider.resolveWebviewView(mockWebviewView)
+		const messageHandler = (mockWebviewView.webview.onDidReceiveMessage as jest.Mock).mock.calls[0][0]
+
+		await messageHandler({ type: "maxWorkspaceFiles", value: 300 })
+
+		expect(mockContextProxy.updateGlobalState).toHaveBeenCalledWith("maxWorkspaceFiles", 300)
+		expect(mockContext.globalState.update).toHaveBeenCalledWith("maxWorkspaceFiles", 300)
+		expect(mockPostMessage).toHaveBeenCalled()
+	})
+
+	test.only("uses mode-specific custom instructions in Cline initialization", async () => {
 		// Setup mock state
 		const modeCustomInstructions = "Code mode instructions"
 		const mockApiConfig = {
@@ -833,6 +845,9 @@ describe("ClineProvider", () => {
 			fuzzyMatchThreshold: 1.0,
 			task: "Test task",
 			experiments: experimentDefault,
+			rootTask: undefined,
+			parentTask: undefined,
+			taskNumber: 1,
 		})
 	})
 

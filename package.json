@@ -3,7 +3,7 @@
 	"displayName": "Roo Code (prev. Roo Cline)",
 	"description": "A whole dev team of AI agents in your editor.",
 	"publisher": "RooVeterinaryInc",
-	"version": "3.8.4",
+	"version": "3.8.6",
 	"icon": "assets/icons/rocket.png",
 	"galleryBanner": {
 		"color": "#617A91",
@@ -307,7 +307,8 @@
 		"watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
 		"watch-tests": "tsc -p . -w --outDir out",
 		"changeset": "changeset",
-		"knip": "knip --include files"
+		"knip": "knip --include files",
+		"update-contributors": "node scripts/update-contributors.js"
 	},
 	"dependencies": {
 		"@anthropic-ai/bedrock-sdk": "^0.10.2",
