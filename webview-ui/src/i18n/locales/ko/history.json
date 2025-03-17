@@ -1,4 +1,7 @@
 {
+	"common": {
+		"cancel": "취소"
+	},
 	"recentTasks": "최근 작업",
 	"viewAll": "모두 보기",
 	"tokens": "Tokens: ↑{{in}} ↓{{out}}",

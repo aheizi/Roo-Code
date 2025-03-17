@@ -1,4 +1,7 @@
 {
+	"common": {
+		"cancel": "İptal"
+	},
 	"recentTasks": "Son Görevler",
 	"viewAll": "Tümünü Gör",
 	"tokens": "Tokens: ↑{{in}} ↓{{out}}",
