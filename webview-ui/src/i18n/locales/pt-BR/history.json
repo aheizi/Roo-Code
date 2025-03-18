@@ -30,5 +30,9 @@
 	"selectAll": "Selecionar tudo",
 	"selectedItems": "{{selected}}/{{total}} itens selecionados",
 	"clearSelection": "Limpar seleção",
-	"deleteSelected": "Excluir selecionados"
+	"deleteSelected": "Excluir selecionados",
+	"deleteTasks": "Excluir tarefas",
+	"confirmDeleteTasks": "Tem certeza que deseja excluir {{count}} tarefas?",
+	"deleteTasksWarning": "As tarefas excluídas não podem ser recuperadas. Por favor, certifique-se de que deseja prosseguir.",
+	"deleteItems": "Excluir {{count}} itens"
 }

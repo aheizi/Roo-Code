@@ -30,5 +30,9 @@
 	"selectAll": "Tümünü Seç",
 	"selectedItems": "{{selected}}/{{total}} öğe seçildi",
 	"clearSelection": "Seçimi Temizle",
-	"deleteSelected": "Seçilenleri Sil"
+	"deleteSelected": "Seçilenleri Sil",
+	"deleteTasks": "Görevleri Sil",
+	"confirmDeleteTasks": "{{count}} görevi silmek istediğinizden emin misiniz?",
+	"deleteTasksWarning": "Silinen görevler geri alınamaz. Lütfen devam etmek istediğinizden emin olun.",
+	"deleteItems": "{{count}} Öğeyi Sil"
 }
