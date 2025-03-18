@@ -6,7 +6,6 @@
  * @returns The formatted locale string with uppercase region code
  */
 export function formatLanguage(vscodeLocale: string): string {
-	return "zh-CN"
 	if (!vscodeLocale) {
 		return "en" // Default to English if no locale is provided
 	}

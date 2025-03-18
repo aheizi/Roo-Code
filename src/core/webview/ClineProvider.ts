@@ -977,20 +977,56 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 					case "deleteMultipleTasksWithIds": {
 						const ids = message.ids
 						if (Array.isArray(ids)) {
-							const deletePromises = ids.map(async (id) => {
-								try {
-									await this.deleteTaskWithId(id)
-									return { id, success: true }
-								} catch (error) {
-									this.outputChannel.appendLine(
-										`Failed to delete task ${id}: ${error instanceof Error ? error.message : String(error)}`,
-									)
-									return { id, success: false }
-								}
-							})
+							// Process in batches of 20 (or another reasonable number)
+							const batchSize = 20
+							const results = []
 
-							await Promise.all(deletePromises)
-							await this.postStateToWebview()
+							// Direct console logging for better visibility
+							console.log(`BATCH_DELETE: Starting batch deletion: ${ids.length} tasks total`)
+
+							for (let i = 0; i < ids.length; i += batchSize) {
+								const batch = ids.slice(i, i + batchSize)
+								console.log(
+									`BATCH_DELETE: Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(ids.length / batchSize)}: ${batch.length} tasks`,
+								)
+
+								const batchPromises = batch.map(async (id) => {
+									try {
+										await this.deleteTaskWithId(id)
+										return { id, success: true }
+									} catch (error) {
+										const errorMessage = `Failed to delete task ${id}: ${error instanceof Error ? error.message : String(error)}`
+										console.log(`BATCH_DELETE: ${errorMessage}`)
+										return { id, success: false }
+									}
+								})
+
+								// Process each batch in parallel but wait for completion before starting the next batch
+								const batchResults = await Promise.all(batchPromises)
+								results.push(...batchResults)
+
+								// Log batch results
+								const batchSuccessCount = batchResults.filter((r) => r.success).length
+								console.log(
+									`BATCH_DELETE: Batch ${Math.floor(i / batchSize) + 1} completed: ${batchSuccessCount}/${batch.length} tasks successful`,
+								)
+
+								// Optionally, update the UI after each batch to show progress
+								await this.postStateToWebview()
+							}
+
+							// Log final results
+							const successCount = results.filter((r) => r.success).length
+							const failCount = results.length - successCount
+							console.log(
+								`BATCH_DELETE: Batch deletion completed: ${successCount}/${ids.length} tasks successful, ${failCount} tasks failed`,
+							)
+
+							// Log failed task IDs if any
+							if (failCount > 0) {
+								const failedIds = results.filter((r) => !r.success).map((r) => r.id)
+								console.log(`BATCH_DELETE: Failed task IDs: ${failedIds.join(", ")}`)
+							}
 						}
 						break
 					}
