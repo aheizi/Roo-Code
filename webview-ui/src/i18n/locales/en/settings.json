@@ -74,6 +74,20 @@
 		"description": "Description",
 		"apiProvider": "API Provider",
 		"model": "Model",
+		"nameEmpty": "Name cannot be empty",
+		"nameExists": "A profile with this name already exists",
+		"deleteProfile": "Delete Profile",
+		"invalidArnFormat": "Invalid ARN format. Please check the examples above.",
+		"enterNewName": "Enter new name",
+		"addProfile": "Add Profile",
+		"renameProfile": "Rename Profile",
+		"newProfile": "New Configuration Profile",
+		"enterProfileName": "Enter profile name",
+		"createProfile": "Create Profile",
+		"cannotDeleteOnlyProfile": "Cannot delete the only profile",
+		"vscodeLmDescription": " The VS Code Language Model API allows you to run models provided by other VS Code extensions (including but not limited to GitHub Copilot). The easiest way to get started is to install the Copilot and Copilot Chat extensions from the VS Code Marketplace.",
+		"awsCustomArnUse": "Enter a valid AWS Bedrock ARN for the model you want to use. Format examples:",
+		"awsCustomArnDesc": "Make sure the region in the ARN matches your selected AWS Region above.",
 		"openRouterApiKey": "OpenRouter API Key",
 		"getOpenRouterApiKey": "Get OpenRouter API Key",
 		"apiKeyStorageNotice": "API keys are stored securely in VSCode's Secret Storage",
@@ -104,6 +118,8 @@
 		"awsSessionToken": "AWS Session Token",
 		"awsRegion": "AWS Region",
 		"awsCrossRegion": "Use cross-region inference",
+		"vscodeLmModel": "Language Model",
+		"vscodeLmWarning": "Note: This is a very experimental integration and provider support will vary. If you get an error about a model not being supported, that's an issue on the provider's end.",
 		"googleCloudSetup": {
 			"title": "To use Google Cloud Vertex AI, you need to:",
 			"step1": "1. Create a Google Cloud account, enable the Vertex AI API & enable the desired Claude models.",
@@ -135,6 +151,13 @@
 		"humanRelay": {
 			"description": "No API key is required, but the user needs to help copy and paste the information to the web chat AI.",
 			"instructions": "During use, a dialog box will pop up and the current message will be copied to the clipboard automatically. You need to paste these to web versions of AI (such as ChatGPT or Claude), then copy the AI's reply back to the dialog box and click the confirm button."
+		},
+		"openRouter": {
+			"providerRouting": {
+				"title": "OpenRouter Provider Routing",
+				"description": "OpenRouter routes requests to the best available providers for your model. By default, requests are load balanced across the top providers to maximize uptime. However, you can choose a specific provider to use for this model.",
+				"learnMore": "Learn more about provider routing"
+			}
 		},
 		"customModel": {
 			"capabilities": "Configure the capabilities and pricing for your custom OpenAI-compatible model. Be careful when specifying the model capabilities, as they can affect how Roo Code performs.",
@@ -218,6 +241,11 @@
 			"label": "Enable sound effects",
 			"description": "When enabled, Roo will play sound effects for notifications and events.",
 			"volumeLabel": "Volume"
+		},
+		"tts": {
+			"label": "Enable text-to-speech",
+			"description": "When enabled, Roo will read aloud its responses using text-to-speech.",
+			"speedLabel": "Speed"
 		}
 	},
 	"contextManagement": {

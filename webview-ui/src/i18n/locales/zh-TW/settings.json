@@ -74,6 +74,20 @@
 		"description": "描述",
 		"apiProvider": "API 提供者",
 		"model": "模型",
+		"nameEmpty": "名稱不能為空",
+		"nameExists": "已存在同名的設定檔",
+		"deleteProfile": "刪除設定檔",
+		"invalidArnFormat": "無效的 ARN 格式。請檢查上面的範例。",
+		"enterNewName": "輸入新名稱",
+		"addProfile": "新增設定檔",
+		"renameProfile": "重新命名設定檔",
+		"newProfile": "新建設定檔",
+		"enterProfileName": "輸入設定檔名稱",
+		"createProfile": "建立設定檔",
+		"cannotDeleteOnlyProfile": "無法刪除唯一的設定檔",
+		"vscodeLmDescription": "VS Code 語言模型 API 允許您運行其他 VS Code 擴展提供的模型（包括但不限於 GitHub Copilot）。最簡單的方式是從 VS Code Marketplace 安裝 Copilot 和 Copilot Chat 擴展。",
+		"awsCustomArnUse": "輸入您要使用的模型的有效 AWS Bedrock ARN。格式範例：",
+		"awsCustomArnDesc": "確保 ARN 中的區域與您上面選擇的 AWS 區域匹配。",
 		"openRouterApiKey": "OpenRouter API 金鑰",
 		"getOpenRouterApiKey": "取得 OpenRouter API 金鑰",
 		"apiKeyStorageNotice": "API 金鑰安全儲存在 VSCode 的秘密儲存中",
@@ -104,6 +118,8 @@
 		"awsSessionToken": "AWS 工作階段權杖",
 		"awsRegion": "AWS 區域",
 		"awsCrossRegion": "使用跨區域推論",
+		"vscodeLmModel": "VSCode LM 模型",
+		"vscodeLmWarning": "注意：這是一個非常實驗性的集成，提供者支援會有所不同。如果您收到有關不支援模型的錯誤，那麼這是提供者方面的問題。",
 		"googleCloudSetup": {
 			"title": "要使用 Google Cloud Vertex AI，您需要：",
 			"step1": "1. 建立 Google Cloud 帳戶，啟用 Vertex AI API 並啟用所需的 Claude 模型。",
@@ -135,6 +151,13 @@
 		"humanRelay": {
 			"description": "不需要 API 金鑰，但使用者需要協助將資訊複製並貼上到網頁聊天 AI。",
 			"instructions": "使用期間會彈出對話框，並自動將目前訊息複製到剪貼簿。您需要將這些內容貼上到網頁版 AI（如 ChatGPT 或 Claude），然後將 AI 的回覆複製回對話框並點擊確認按鈕。"
+		},
+		"openRouter": {
+			"providerRouting": {
+				"title": "OpenRouter 提供者路由",
+				"description": "OpenRouter 將請求路由到適合您模型的最佳可用提供者。預設情況下，請求會在頂級提供者之間進行負載平衡以最大化正常運行時間。但是，您可以為此模型選擇特定的提供者。",
+				"learnMore": "了解更多關於提供者路由的資訊"
+			}
 		},
 		"customModel": {
 			"capabilities": "設定您的自訂 OpenAI 相容模型的功能和定價。請謹慎指定模型功能，因為它們會影響 Roo Code 的效能。",
@@ -218,6 +241,11 @@
 			"label": "啟用音效",
 			"description": "啟用後，Roo 將為通知和事件播放音效。",
 			"volumeLabel": "音量"
+		},
+		"tts": {
+			"label": "啟用文字轉語音",
+			"description": "啟用後，Roo 將使用文字轉語音功能朗讀其回應。",
+			"speedLabel": "速度"
 		}
 	},
 	"contextManagement": {

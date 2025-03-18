@@ -74,6 +74,20 @@
 		"description": "Opis",
 		"apiProvider": "Dostawca API",
 		"model": "Model",
+		"nameEmpty": "Nazwa nie może być pusta",
+		"nameExists": "Profil o tej nazwie już istnieje",
+		"deleteProfile": "Usuń profil",
+		"invalidArnFormat": "Nieprawidłowy format ARN. Sprawdź powyższe przykłady.",
+		"enterNewName": "Wprowadź nową nazwę",
+		"addProfile": "Dodaj profil",
+		"renameProfile": "Zmień nazwę profilu",
+		"newProfile": "Nowy profil konfiguracji",
+		"enterProfileName": "Wprowadź nazwę profilu",
+		"createProfile": "Utwórz profil",
+		"cannotDeleteOnlyProfile": "Nie można usunąć jedynego profilu",
+		"vscodeLmDescription": "Interfejs API modelu językowego VS Code umożliwia uruchamianie modeli dostarczanych przez inne rozszerzenia VS Code (w tym, ale nie tylko, GitHub Copilot). Najłatwiejszym sposobem na rozpoczęcie jest zainstalowanie rozszerzeń Copilot i Copilot Chat z VS Code Marketplace.",
+		"awsCustomArnUse": "Wprowadź prawidłowy AWS Bedrock ARN dla modelu, którego chcesz użyć. Przykłady formatu:",
+		"awsCustomArnDesc": "Upewnij się, że region w ARN odpowiada wybranemu powyżej regionowi AWS.",
 		"openRouterApiKey": "Klucz API OpenRouter",
 		"getOpenRouterApiKey": "Uzyskaj klucz API OpenRouter",
 		"apiKeyStorageNotice": "Klucze API są bezpiecznie przechowywane w Tajnym Magazynie VSCode",
@@ -104,6 +118,8 @@
 		"awsSessionToken": "Token sesji AWS",
 		"awsRegion": "Region AWS",
 		"awsCrossRegion": "Użyj wnioskowania międzyregionalnego",
+		"vscodeLmModel": "Model językowy",
+		"vscodeLmWarning": "Uwaga: To bardzo eksperymentalna integracja, a wsparcie dostawcy może się różnić. Jeśli otrzymasz błąd dotyczący nieobsługiwanego modelu, jest to problem po stronie dostawcy.",
 		"googleCloudSetup": {
 			"title": "Aby korzystać z Google Cloud Vertex AI, potrzebujesz:",
 			"step1": "1. Utworzyć konto Google Cloud, włączyć API Vertex AI i włączyć żądane modele Claude.",
@@ -135,6 +151,13 @@
 		"humanRelay": {
 			"description": "Nie jest wymagany klucz API, ale użytkownik będzie musiał pomóc w kopiowaniu i wklejaniu informacji do czatu internetowego AI.",
 			"instructions": "Podczas użytkowania pojawi się okno dialogowe, a bieżąca wiadomość zostanie automatycznie skopiowana do schowka. Będziesz musiał wkleić ją do internetowych wersji AI (takich jak ChatGPT lub Claude), a następnie skopiować odpowiedź AI z powrotem do okna dialogowego i kliknąć przycisk potwierdzenia."
+		},
+		"openRouter": {
+			"providerRouting": {
+				"title": "Routing dostawców OpenRouter",
+				"description": "OpenRouter kieruje żądania do najlepszych dostępnych dostawców dla Twojego modelu. Domyślnie żądania są równoważone między najlepszymi dostawcami, aby zmaksymalizować czas działania. Możesz jednak wybrać konkretnego dostawcę do użycia z tym modelem.",
+				"learnMore": "Dowiedz się więcej o routingu dostawców"
+			}
 		},
 		"customModel": {
 			"capabilities": "Skonfiguruj możliwości i ceny swojego niestandardowego modelu zgodnego z OpenAI. Zachowaj ostrożność podczas określania możliwości modelu, ponieważ mogą one wpływać na wydajność Roo Code.",
@@ -218,6 +241,11 @@
 			"label": "Włącz efekty dźwiękowe",
 			"description": "Gdy włączone, Roo będzie odtwarzać efekty dźwiękowe dla powiadomień i zdarzeń.",
 			"volumeLabel": "Głośność"
+		},
+		"tts": {
+			"label": "Włącz syntezę mowy",
+			"description": "Gdy włączone, Roo będzie czytać na głos swoje odpowiedzi za pomocą syntezy mowy.",
+			"speedLabel": "Szybkość"
 		}
 	},
 	"contextManagement": {
