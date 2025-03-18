@@ -1,7 +1,4 @@
 {
-	"common": {
-		"cancel": "रद्द करें"
-	},
 	"recentTasks": "हालिया कार्य",
 	"viewAll": "सभी देखें",
 	"tokens": "Tokens: ↑{{in}} ↓{{out}}",

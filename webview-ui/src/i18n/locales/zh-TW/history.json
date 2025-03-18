@@ -1,7 +1,4 @@
 {
-	"common": {
-		"cancel": "取消"
-	},
 	"recentTasks": "最近任務",
 	"viewAll": "查看全部",
 	"tokens": "Tokens: ↑{{in}} ↓{{out}}",

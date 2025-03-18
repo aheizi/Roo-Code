@@ -1,7 +1,4 @@
 {
-	"common": {
-		"cancel": "Hủy bỏ"
-	},
 	"recentTasks": "Nhiệm vụ gần đây",
 	"viewAll": "Xem tất cả",
 	"tokens": "Token: ↑{{in}} ↓{{out}}",

@@ -43,7 +43,7 @@ export const BatchDeleteTaskDialog = ({ taskIds, ...props }: BatchDeleteTaskDial
 				</AlertDialogHeader>
 				<AlertDialogFooter>
 					<AlertDialogCancel asChild>
-						<Button variant="secondary">{t("history:common:cancel")}</Button>
+						<Button variant="secondary">{t("history:cancel")}</Button>
 					</AlertDialogCancel>
 					<AlertDialogAction asChild>
 						<Button variant="destructive" onClick={onDelete}>

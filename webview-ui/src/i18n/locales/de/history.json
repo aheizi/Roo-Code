@@ -1,8 +1,5 @@
 {
-	"common": {
-		"cancel": "Abbrechen"
-	},
-	"recentTasks": "Neueste Aufgaben",
+	"recentTasks": "Kürzliche Aufgaben",
 	"viewAll": "Alle anzeigen",
 	"tokens": "Tokens: ↑{{in}} ↓{{out}}",
 	"cache": "Cache: +{{writes}} → {{reads}}",

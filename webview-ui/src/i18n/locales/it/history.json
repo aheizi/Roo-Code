@@ -1,7 +1,4 @@
 {
-	"common": {
-		"cancel": "Annulla"
-	},
 	"recentTasks": "Attività recenti",
 	"viewAll": "Vedi tutto",
 	"tokens": "Tokens: ↑{{in}} ↓{{out}}",
