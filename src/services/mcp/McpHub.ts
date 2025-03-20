@@ -117,57 +117,6 @@ export class McpHub {
 		this.initializeProjectMcpServers()
 	}
 
-	public setupWorkspaceFoldersWatcher(): void {
-		// Skip if test environment is detected
-		if (process.env.NODE_ENV === "test" || process.env.JEST_WORKER_ID !== undefined) {
-			return
-		}
-		this.disposables.push(
-			vscode.workspace.onDidChangeWorkspaceFolders(async () => {
-				await this.updateProjectMcpServers()
-				this.watchProjectMcpFile()
-			}),
-		)
-	}
-
-	private watchProjectMcpFile(): void {
-		this.projectMcpWatcher?.dispose()
-
-		this.projectMcpWatcher = vscode.workspace.createFileSystemWatcher("**/.roo/mcp.json", false, false, false)
-
-		this.disposables.push(
-			this.projectMcpWatcher.onDidChange(async () => {
-				await this.updateProjectMcpServers()
-			}),
-			this.projectMcpWatcher.onDidCreate(async () => {
-				await this.updateProjectMcpServers()
-			}),
-			this.projectMcpWatcher.onDidDelete(async () => {
-				await this.cleanupProjectMcpServers()
-			}),
-		)
-
-		this.disposables.push(this.projectMcpWatcher)
-	}
-
-	private async updateProjectMcpServers(): Promise<void> {
-		// Only clean up and initialize project servers, not affecting global servers
-		await this.cleanupProjectMcpServers()
-		await this.initializeProjectMcpServers()
-	}
-
-	private async cleanupProjectMcpServers(): Promise<void> {
-		// Only filter and delete project servers
-		const projectServers = this.connections.filter((conn) => conn.server.source === "project")
-
-		for (const conn of projectServers) {
-			await this.deleteConnection(conn.server.name)
-		}
-
-		// Notify webview of changes after cleanup
-		await this.notifyWebviewOfServerChanges()
-	}
-
 	/**
 	 * Validates and normalizes server configuration
 	 * @param config The server configuration to validate
@@ -452,7 +401,7 @@ export class McpHub {
 
 	private async connectToServer(
 		name: string,
-		config: z.infer<typeof StdioConfigSchema>,
+		config: z.infer<typeof ServerConfigSchema>,
 		source: "global" | "project" = "global",
 	): Promise<void> {
 		// Remove existing connection if it exists
