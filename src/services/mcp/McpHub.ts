@@ -221,8 +221,38 @@ export class McpHub {
 	}
 
 	private async updateProjectMcpServers(): Promise<void> {
-		await this.cleanupProjectMcpServers()
-		await this.initializeProjectMcpServers()
+		try {
+			const projectMcpPath = await this.getProjectMcpPath()
+			if (!projectMcpPath) return
+
+			const content = await fs.readFile(projectMcpPath, "utf-8")
+			let config: any
+
+			try {
+				config = JSON.parse(content)
+			} catch (parseError) {
+				const errorMessage = t("common:errors.invalid_mcp_settings_syntax")
+				console.error(errorMessage, parseError)
+				vscode.window.showErrorMessage(errorMessage)
+				return
+			}
+
+			// 验证配置结构
+			const result = McpSettingsSchema.safeParse(config)
+			if (result.success) {
+				// 使用与全局MCP相同的增量更新策略
+				await this.updateServerConnections(result.data.mcpServers || {}, "project")
+			} else {
+				// 格式化验证错误以提供更好的用户反馈
+				const errorMessages = result.error.errors
+					.map((err) => `${err.path.join(".")}: ${err.message}`)
+					.join("\n")
+				console.error("Invalid project MCP settings format:", errorMessages)
+				vscode.window.showErrorMessage(t("common:errors.invalid_mcp_settings_validation", { errorMessages }))
+			}
+		} catch (error) {
+			this.showErrorMessage("Failed to update project MCP servers", error)
+		}
 	}
 
 	private async cleanupProjectMcpServers(): Promise<void> {
