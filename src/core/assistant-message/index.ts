@@ -51,12 +51,14 @@ export const toolParamNames = [
 	"diff",
 	"start_line",
 	"end_line",
+	"auto_truncate",
 	"mode_slug",
 	"reason",
 	"operations",
 	"mode",
 	"message",
 	"cwd",
+	"follow_up",
 ] as const
 
 export type ToolParamName = (typeof toolParamNames)[number]
@@ -122,7 +124,7 @@ export interface AccessMcpResourceToolUse extends ToolUse {
 
 export interface AskFollowupQuestionToolUse extends ToolUse {
 	name: "ask_followup_question"
-	params: Partial<Pick<Record<ToolParamName, string>, "question">>
+	params: Partial<Pick<Record<ToolParamName, string>, "question" | "follow_up">>
 }
 
 export interface AttemptCompletionToolUse extends ToolUse {
