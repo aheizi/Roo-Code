@@ -200,24 +200,39 @@ export class McpHub {
 		)
 	}
 
+	private async handleConfigFileChange(filePath: string, source: "global" | "project"): Promise<void> {
+		try {
+			const content = await fs.readFile(filePath, "utf-8")
+			const config = JSON.parse(content)
+			const result = McpSettingsSchema.safeParse(config)
+
+			if (!result.success) {
+				const errorMessages = result.error.errors
+					.map((err) => `${err.path.join(".")}: ${err.message}`)
+					.join("\n")
+				vscode.window.showErrorMessage(t("common:errors.invalid_mcp_settings_validation", { errorMessages }))
+				return
+			}
+
+			await this.updateServerConnections(result.data.mcpServers || {}, source)
+		} catch (error) {
+			if (error instanceof SyntaxError) {
+				vscode.window.showErrorMessage(t("common:errors.invalid_mcp_settings_format"))
+			} else {
+				this.showErrorMessage(`Failed to process ${source} MCP settings change`, error)
+			}
+		}
+	}
+
 	private watchProjectMcpFile(): void {
-		this.projectMcpWatcher?.dispose()
-
-		this.projectMcpWatcher = vscode.workspace.createFileSystemWatcher("**/.roo/mcp.json", false, false, false)
-
 		this.disposables.push(
-			this.projectMcpWatcher.onDidChange(async () => {
-				await this.updateProjectMcpServers()
-			}),
-			this.projectMcpWatcher.onDidCreate(async () => {
-				await this.updateProjectMcpServers()
-			}),
-			this.projectMcpWatcher.onDidDelete(async () => {
-				await this.cleanupProjectMcpServers()
+			vscode.workspace.onDidSaveTextDocument(async (document) => {
+				const projectMcpPath = await this.getProjectMcpPath()
+				if (projectMcpPath && arePathsEqual(document.uri.fsPath, projectMcpPath)) {
+					await this.handleConfigFileChange(projectMcpPath, "project")
+				}
 			}),
 		)
-
-		this.disposables.push(this.projectMcpWatcher)
 	}
 
 	private async updateProjectMcpServers(): Promise<void> {
@@ -237,13 +252,12 @@ export class McpHub {
 				return
 			}
 
-			// 验证配置结构
+			// Validate configuration structure
 			const result = McpSettingsSchema.safeParse(config)
 			if (result.success) {
-				// 使用与全局MCP相同的增量更新策略
 				await this.updateServerConnections(result.data.mcpServers || {}, "project")
 			} else {
-				// 格式化验证错误以提供更好的用户反馈
+				// Format validation errors for better user feedback
 				const errorMessages = result.error.errors
 					.map((err) => `${err.path.join(".")}: ${err.message}`)
 					.join("\n")
@@ -312,74 +326,56 @@ export class McpHub {
 		this.disposables.push(
 			vscode.workspace.onDidSaveTextDocument(async (document) => {
 				if (arePathsEqual(document.uri.fsPath, settingsPath)) {
-					const content = await fs.readFile(settingsPath, "utf-8")
-					const errorMessage = t("common:errors.invalid_mcp_settings_format")
-					let config: any
-					try {
-						config = JSON.parse(content)
-					} catch (error) {
-						vscode.window.showErrorMessage(errorMessage)
-						return
-					}
-					const result = McpSettingsSchema.safeParse(config)
-					if (!result.success) {
-						const errorMessages = result.error.errors
-							.map((err) => `${err.path.join(".")}: ${err.message}`)
-							.join("\n")
-						vscode.window.showErrorMessage(
-							t("common:errors.invalid_mcp_settings_validation", { errorMessages }),
-						)
-						return
-					}
-					try {
-						// Only update global servers when global settings change
-						await this.updateServerConnections(result.data.mcpServers || {}, "global")
-					} catch (error) {
-						this.showErrorMessage("Failed to process MCP settings change", error)
-					}
+					await this.handleConfigFileChange(settingsPath, "global")
 				}
 			}),
 		)
 	}
 
-	private async initializeGlobalMcpServers(): Promise<void> {
+	private async initializeMcpServers(source: "global" | "project"): Promise<void> {
 		try {
-			// Initialize global MCP servers
-			const settingsPath = await this.getMcpSettingsFilePath()
-			const content = await fs.readFile(settingsPath, "utf-8")
-			let config: any
+			const configPath =
+				source === "global" ? await this.getMcpSettingsFilePath() : await this.getProjectMcpPath()
 
-			try {
-				config = JSON.parse(content)
-			} catch (parseError) {
-				const errorMessage = t("common:errors.invalid_mcp_settings_syntax")
-				console.error(errorMessage, parseError)
-				vscode.window.showErrorMessage(errorMessage)
+			if (!configPath) {
 				return
 			}
 
-			// Validate the config using McpSettingsSchema
+			const content = await fs.readFile(configPath, "utf-8")
+			const config = JSON.parse(content)
 			const result = McpSettingsSchema.safeParse(config)
+
 			if (result.success) {
-				await this.updateServerConnections(result.data.mcpServers || {})
+				await this.updateServerConnections(result.data.mcpServers || {}, source)
 			} else {
-				// Format validation errors for better user feedback
 				const errorMessages = result.error.errors
 					.map((err) => `${err.path.join(".")}: ${err.message}`)
 					.join("\n")
-				console.error("Invalid MCP settings format:", errorMessages)
+				console.error(`Invalid ${source} MCP settings format:`, errorMessages)
 				vscode.window.showErrorMessage(t("common:errors.invalid_mcp_settings_validation", { errorMessages }))
 
-				// Still try to connect with the raw config, but show warnings
-				try {
-					await this.updateServerConnections(config.mcpServers || {}, "global")
-				} catch (error) {
-					this.showErrorMessage("Failed to initialize global MCP servers with raw config", error)
+				if (source === "global") {
+					// Still try to connect with the raw config, but show warnings
+					try {
+						await this.updateServerConnections(config.mcpServers || {}, source)
+					} catch (error) {
+						this.showErrorMessage(`Failed to initialize ${source} MCP servers with raw config`, error)
+					}
 				}
 			}
 		} catch (error) {
-			this.showErrorMessage("Failed to initialize global MCP servers", error)
+			if (error instanceof SyntaxError) {
+				const errorMessage = t("common:errors.invalid_mcp_settings_syntax")
+				console.error(errorMessage, error)
+				vscode.window.showErrorMessage(errorMessage)
+			} else {
+				this.showErrorMessage(`Failed to initialize ${source} MCP servers`, error)
+			}
 		}
+	}
+
+	private async initializeGlobalMcpServers(): Promise<void> {
+		await this.initializeMcpServers("global")
 	}
 
 	// Get project-level MCP configuration path
@@ -402,28 +398,7 @@ export class McpHub {
 
 	// Initialize project-level MCP servers
 	private async initializeProjectMcpServers(): Promise<void> {
-		const projectMcpPath = await this.getProjectMcpPath()
-		if (!projectMcpPath) {
-			return
-		}
-
-		try {
-			const content = await fs.readFile(projectMcpPath, "utf-8")
-			const config = JSON.parse(content)
-
-			// Validate configuration structure
-			const result = McpSettingsSchema.safeParse(config)
-			if (!result.success) {
-				vscode.window.showErrorMessage("Invalid project MCP configuration format")
-				return
-			}
-
-			// Update server connections
-			await this.updateServerConnections(result.data.mcpServers || {}, "project")
-		} catch (error) {
-			console.error("Failed to initialize project MCP servers:", error)
-			vscode.window.showErrorMessage(`Failed to initialize project MCP server: ${error}`)
-		}
+		await this.initializeMcpServers("project")
 	}
 
 	private async connectToServer(
@@ -571,12 +546,11 @@ export class McpHub {
 	}
 
 	private appendErrorMessage(connection: McpConnection, error: string) {
-		// Limit error message length to prevent excessive length
-		const maxErrorLength = 1000
+		const MAX_ERROR_LENGTH = 1000
 		const newError = connection.server.error ? `${connection.server.error}\n${error}` : error
 		connection.server.error =
-			newError.length > maxErrorLength
-				? newError.substring(0, maxErrorLength) + "...(error message truncated)"
+			newError.length > MAX_ERROR_LENGTH
+				? `${newError.substring(0, MAX_ERROR_LENGTH)}...(error message truncated)`
 				: newError
 	}
 
@@ -784,7 +758,7 @@ export class McpHub {
 					const validatedConfig = this.validateServerConfig(parsedConfig, serverName)
 
 					// Try to connect again using validated config
-					await this.connectToServer(serverName, validatedConfig)
+					await this.connectToServer(serverName, validatedConfig, connection.server.source || "global")
 					vscode.window.showInformationMessage(t("common:info.mcp_server_connected", { serverName }))
 				} catch (validationError) {
 					this.showErrorMessage(`Invalid configuration for MCP server "${serverName}"`, validationError)
