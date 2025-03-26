@@ -625,7 +625,6 @@ export class McpHub {
 				alwaysAllow: alwaysAllowConfig.includes(tool.name),
 			}))
 
-			console.log(`[MCP] Fetched tools for ${serverName}:`, tools)
 			return tools
 		} catch (error) {
 			console.error(`Failed to fetch tools for ${serverName}:`, error)
@@ -707,7 +706,6 @@ export class McpHub {
 		for (const name of currentNames) {
 			if (!newNames.has(name)) {
 				await this.deleteConnection(name, source)
-				console.log(`Deleted MCP server: ${name} from ${source}`)
 			}
 		}
 
@@ -739,7 +737,6 @@ export class McpHub {
 					this.setupFileWatcher(name, validatedConfig, source)
 					await this.deleteConnection(name, source)
 					await this.connectToServer(name, validatedConfig, source)
-					console.log(`Reconnected ${source} MCP server with updated config: ${name}`)
 				} catch (error) {
 					this.showErrorMessage(`Failed to reconnect MCP server ${name}`, error)
 				}
@@ -766,7 +763,6 @@ export class McpHub {
 		if (config.type === "stdio") {
 			// Setup watchers for custom watchPaths if defined
 			if (config.watchPaths && config.watchPaths.length > 0) {
-				console.log(`Setting up custom path watchers for ${name} MCP server...`)
 				const watchPathsWatcher = chokidar.watch(config.watchPaths, {
 					// persistent: true,
 					// ignoreInitial: true,
@@ -774,7 +770,6 @@ export class McpHub {
 				})
 
 				watchPathsWatcher.on("change", async (changedPath) => {
-					console.log(`Detected change in custom path ${changedPath}. Restarting server ${name}...`)
 					try {
 						// Pass the source from the config to restartConnection
 						await this.restartConnection(name, source)
@@ -789,7 +784,6 @@ export class McpHub {
 			// Also setup the fallback build/index.js watcher if applicable
 			const filePath = config.args?.find((arg: string) => arg.includes("build/index.js"))
 			if (filePath) {
-				console.log(`Setting up build/index.js watcher for ${name} MCP server...`)
 				// we use chokidar instead of onDidSaveTextDocument because it doesn't require the file to be open in the editor
 				const indexJsWatcher = chokidar.watch(filePath, {
 					// persistent: true,
@@ -798,7 +792,6 @@ export class McpHub {
 				})
 
 				indexJsWatcher.on("change", async () => {
-					console.log(`Detected change in ${filePath}. Restarting server ${name}...`)
 					try {
 						// Pass the source from the config to restartConnection
 						await this.restartConnection(name, source)
@@ -877,7 +870,7 @@ export class McpHub {
 				const projectConfig = JSON.parse(projectContent)
 				projectServerOrder = Object.keys(projectConfig.mcpServers || {})
 			} catch (error) {
-				console.error("Failed to read project MCP config:", error)
+				// Silently continue with empty project server order
 			}
 		}
 
@@ -901,15 +894,6 @@ export class McpHub {
 			// Project servers come before global servers (reversed from original)
 			return aIsGlobal ? 1 : -1
 		})
-
-		// Add debug logging for server order
-		console.log(
-			"[MCP] Sorted servers for webview:",
-			sortedConnections.map((conn) => ({
-				name: conn.server.name,
-				source: conn.server.source || "global",
-			})),
-		)
 
 		// Send sorted servers to webview
 		await this.providerRef.deref()?.postMessageToWebview({
@@ -1186,9 +1170,6 @@ export class McpHub {
 		shouldAllow: boolean,
 	): Promise<void> {
 		try {
-			console.log(
-				`Toggling tool ${toolName} for server ${serverName} (source: ${source}) to ${shouldAllow ? "allow" : "disallow"}`,
-			)
 			// Find the connection with matching name and source
 			const connection = this.findConnection(serverName, source)
 
@@ -1246,18 +1227,7 @@ export class McpHub {
 			// Update the tools list to reflect the change
 			if (connection) {
 				// Explicitly pass the source to ensure we're updating the correct server's tools
-				console.log(`Updating tools list for ${serverName} (source: ${source})`)
 				connection.server.tools = await this.fetchToolsList(serverName, source)
-
-				// Log the updated tools list for debugging
-				console.log(
-					`Updated tools list for ${serverName} (source: ${source}):`,
-					connection.server.tools.map((tool) => ({
-						name: tool.name,
-						alwaysAllow: tool.alwaysAllow,
-					})),
-				)
-
 				await this.notifyWebviewOfServerChanges()
 			}
 		} catch (error) {
