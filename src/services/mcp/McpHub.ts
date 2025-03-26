@@ -274,7 +274,7 @@ export class McpHub {
 		const projectServers = this.connections.filter((conn) => conn.server.source === "project")
 
 		for (const conn of projectServers) {
-			await this.deleteConnection(conn.server.name)
+			await this.deleteConnection(conn.server.name, "project")
 		}
 
 		await this.notifyWebviewOfServerChanges()
@@ -407,8 +407,8 @@ export class McpHub {
 		config: z.infer<typeof ServerConfigSchema>,
 		source: "global" | "project" = "global",
 	): Promise<void> {
-		// Remove existing connection if it exists
-		await this.deleteConnection(name)
+		// Remove existing connection if it exists with the same source
+		await this.deleteConnection(name, source)
 
 		try {
 			const client = new Client(
@@ -437,7 +437,7 @@ export class McpHub {
 				// Set up stdio specific error handling
 				transport.onerror = async (error) => {
 					console.error(`Transport error for "${name}":`, error)
-					const connection = this.connections.find((conn) => conn.server.name === name)
+					const connection = this.findConnection(name, source)
 					if (connection) {
 						connection.server.status = "disconnected"
 						this.appendErrorMessage(connection, error instanceof Error ? error.message : `${error}`)
@@ -446,7 +446,7 @@ export class McpHub {
 				}
 
 				transport.onclose = async () => {
-					const connection = this.connections.find((conn) => conn.server.name === name)
+					const connection = this.findConnection(name, source)
 					if (connection) {
 						connection.server.status = "disconnected"
 					}
@@ -469,7 +469,7 @@ export class McpHub {
 						} else {
 							// Treat as error log
 							console.error(`Server "${name}" stderr:`, output)
-							const connection = this.connections.find((conn) => conn.server.name === name)
+							const connection = this.findConnection(name, source)
 							if (connection) {
 								this.appendErrorMessage(connection, output)
 								if (connection.server.status === "disconnected") {
@@ -503,7 +503,7 @@ export class McpHub {
 				// Set up SSE specific error handling
 				transport.onerror = async (error) => {
 					console.error(`Transport error for "${name}":`, error)
-					const connection = this.connections.find((conn) => conn.server.name === name)
+					const connection = this.findConnection(name, source)
 					if (connection) {
 						connection.server.status = "disconnected"
 						this.appendErrorMessage(connection, error instanceof Error ? error.message : `${error}`)
@@ -532,12 +532,12 @@ export class McpHub {
 			connection.server.error = ""
 
 			// Initial fetch of tools and resources
-			connection.server.tools = await this.fetchToolsList(name)
-			connection.server.resources = await this.fetchResourcesList(name)
-			connection.server.resourceTemplates = await this.fetchResourceTemplatesList(name)
+			connection.server.tools = await this.fetchToolsList(name, source)
+			connection.server.resources = await this.fetchResourcesList(name, source)
+			connection.server.resourceTemplates = await this.fetchResourceTemplatesList(name, source)
 		} catch (error) {
 			// Update status with error
-			const connection = this.connections.find((conn) => conn.server.name === name)
+			const connection = this.findConnection(name, source)
 			if (connection) {
 				connection.server.status = "disconnected"
 				this.appendErrorMessage(connection, error instanceof Error ? error.message : `${error}`)
@@ -555,23 +555,50 @@ export class McpHub {
 				: newError
 	}
 
-	private async fetchToolsList(serverName: string): Promise<McpTool[]> {
+	/**
+	 * Helper method to find a connection by server name and source
+	 * @param serverName The name of the server to find
+	 * @param source Optional source to filter by (global or project)
+	 * @returns The matching connection or undefined if not found
+	 */
+	private findConnection(serverName: string, source?: "global" | "project"): McpConnection | undefined {
+		// If source is specified, only find servers with that source
+		if (source !== undefined) {
+			return this.connections.find((conn) => conn.server.name === serverName && conn.server.source === source)
+		}
+
+		// If no source is specified, first look for project servers, then global servers
+		// This ensures that when servers have the same name, project servers are prioritized
+		const projectConn = this.connections.find(
+			(conn) => conn.server.name === serverName && conn.server.source === "project",
+		)
+		if (projectConn) return projectConn
+
+		// If no project server is found, look for global servers
+		return this.connections.find(
+			(conn) => conn.server.name === serverName && (conn.server.source === "global" || !conn.server.source),
+		)
+	}
+
+	private async fetchToolsList(serverName: string, source?: "global" | "project"): Promise<McpTool[]> {
 		try {
-			const connection = this.connections.find((conn) => conn.server.name === serverName)
+			// Use the helper method to find the connection
+			const connection = this.findConnection(serverName, source)
+
 			if (!connection) {
 				throw new Error(`Server ${serverName} not found`)
 			}
 
 			const response = await connection.client.request({ method: "tools/list" }, ListToolsResultSchema)
 
-			// Determine which config file to read based on server source
-			const isProjectServer = connection.server.source === "project"
+			// Determine the actual source of the server
+			const actualSource = connection.server.source || "global"
 			let configPath: string
 			let alwaysAllowConfig: string[] = []
 
-			// Read from the appropriate config file
+			// Read from the appropriate config file based on the actual source
 			try {
-				if (isProjectServer) {
+				if (actualSource === "project") {
 					// Get project MCP config path
 					const projectMcpPath = await this.getProjectMcpPath()
 					if (projectMcpPath) {
@@ -606,11 +633,13 @@ export class McpHub {
 		}
 	}
 
-	private async fetchResourcesList(serverName: string): Promise<McpResource[]> {
+	private async fetchResourcesList(serverName: string, source?: "global" | "project"): Promise<McpResource[]> {
 		try {
-			const response = await this.connections
-				.find((conn) => conn.server.name === serverName)
-				?.client.request({ method: "resources/list" }, ListResourcesResultSchema)
+			const connection = this.findConnection(serverName, source)
+			if (!connection) {
+				return []
+			}
+			const response = await connection.client.request({ method: "resources/list" }, ListResourcesResultSchema)
 			return response?.resources || []
 		} catch (error) {
 			// console.error(`Failed to fetch resources for ${serverName}:`, error)
@@ -618,11 +647,19 @@ export class McpHub {
 		}
 	}
 
-	private async fetchResourceTemplatesList(serverName: string): Promise<McpResourceTemplate[]> {
+	private async fetchResourceTemplatesList(
+		serverName: string,
+		source?: "global" | "project",
+	): Promise<McpResourceTemplate[]> {
 		try {
-			const response = await this.connections
-				.find((conn) => conn.server.name === serverName)
-				?.client.request({ method: "resources/templates/list" }, ListResourceTemplatesResultSchema)
+			const connection = this.findConnection(serverName, source)
+			if (!connection) {
+				return []
+			}
+			const response = await connection.client.request(
+				{ method: "resources/templates/list" },
+				ListResourceTemplatesResultSchema,
+			)
 			return response?.resourceTemplates || []
 		} catch (error) {
 			// console.error(`Failed to fetch resource templates for ${serverName}:`, error)
@@ -630,17 +667,27 @@ export class McpHub {
 		}
 	}
 
-	async deleteConnection(name: string): Promise<void> {
-		const connection = this.connections.find((conn) => conn.server.name === name)
-		if (connection) {
+	async deleteConnection(name: string, source?: "global" | "project"): Promise<void> {
+		// If source is provided, only delete connections from that source
+		const connections = source
+			? this.connections.filter((conn) => conn.server.name === name && conn.server.source === source)
+			: this.connections.filter((conn) => conn.server.name === name)
+
+		for (const connection of connections) {
 			try {
 				await connection.transport.close()
 				await connection.client.close()
 			} catch (error) {
 				console.error(`Failed to close transport for ${name}:`, error)
 			}
-			this.connections = this.connections.filter((conn) => conn.server.name !== name)
 		}
+
+		// Remove the connections from the array
+		this.connections = this.connections.filter((conn) => {
+			if (conn.server.name !== name) return true
+			if (source && conn.server.source !== source) return true
+			return false
+		})
 	}
 
 	async updateServerConnections(
@@ -659,19 +706,15 @@ export class McpHub {
 		// Delete removed servers
 		for (const name of currentNames) {
 			if (!newNames.has(name)) {
-				await this.deleteConnection(name)
-				console.log(`Deleted MCP server: ${name}`)
+				await this.deleteConnection(name, source)
+				console.log(`Deleted MCP server: ${name} from ${source}`)
 			}
 		}
 
 		// Update or add servers
 		for (const [name, config] of Object.entries(newServers)) {
 			// Only consider connections that match the current source
-			const currentConnection = this.connections.find(
-				(conn) =>
-					conn.server.name === name &&
-					(conn.server.source === source || (!conn.server.source && source === "global")),
-			)
+			const currentConnection = this.findConnection(name, source)
 
 			// Validate and transform the config
 			let validatedConfig: z.infer<typeof ServerConfigSchema>
@@ -685,7 +728,7 @@ export class McpHub {
 			if (!currentConnection) {
 				// New server
 				try {
-					this.setupFileWatcher(name, validatedConfig)
+					this.setupFileWatcher(name, validatedConfig, source)
 					await this.connectToServer(name, validatedConfig, source)
 				} catch (error) {
 					this.showErrorMessage(`Failed to connect to new MCP server ${name}`, error)
@@ -693,8 +736,8 @@ export class McpHub {
 			} else if (!deepEqual(JSON.parse(currentConnection.server.config), config)) {
 				// Existing server with changed config
 				try {
-					this.setupFileWatcher(name, validatedConfig)
-					await this.deleteConnection(name)
+					this.setupFileWatcher(name, validatedConfig, source)
+					await this.deleteConnection(name, source)
 					await this.connectToServer(name, validatedConfig, source)
 					console.log(`Reconnected ${source} MCP server with updated config: ${name}`)
 				} catch (error) {
@@ -707,7 +750,11 @@ export class McpHub {
 		this.isConnecting = false
 	}
 
-	private setupFileWatcher(name: string, config: z.infer<typeof ServerConfigSchema>) {
+	private setupFileWatcher(
+		name: string,
+		config: z.infer<typeof ServerConfigSchema>,
+		source: "global" | "project" = "global",
+	) {
 		// Initialize an empty array for this server if it doesn't exist
 		if (!this.fileWatchers.has(name)) {
 			this.fileWatchers.set(name, [])
@@ -729,7 +776,8 @@ export class McpHub {
 				watchPathsWatcher.on("change", async (changedPath) => {
 					console.log(`Detected change in custom path ${changedPath}. Restarting server ${name}...`)
 					try {
-						await this.restartConnection(name)
+						// Pass the source from the config to restartConnection
+						await this.restartConnection(name, source)
 					} catch (error) {
 						console.error(`Failed to restart server ${name} after change in ${changedPath}:`, error)
 					}
@@ -752,7 +800,8 @@ export class McpHub {
 				indexJsWatcher.on("change", async () => {
 					console.log(`Detected change in ${filePath}. Restarting server ${name}...`)
 					try {
-						await this.restartConnection(name)
+						// Pass the source from the config to restartConnection
+						await this.restartConnection(name, source)
 					} catch (error) {
 						console.error(`Failed to restart server ${name} after change in ${filePath}:`, error)
 					}
@@ -773,7 +822,7 @@ export class McpHub {
 		this.fileWatchers.clear()
 	}
 
-	async restartConnection(serverName: string): Promise<void> {
+	async restartConnection(serverName: string, source?: "global" | "project"): Promise<void> {
 		this.isConnecting = true
 		const provider = this.providerRef.deref()
 		if (!provider) {
@@ -781,7 +830,7 @@ export class McpHub {
 		}
 
 		// Get existing connection and update its status
-		const connection = this.connections.find((conn) => conn.server.name === serverName)
+		const connection = this.findConnection(serverName, source)
 		const config = connection?.server.config
 		if (config) {
 			vscode.window.showInformationMessage(t("common:info.mcp_server_restarting", { serverName }))
@@ -790,7 +839,7 @@ export class McpHub {
 			await this.notifyWebviewOfServerChanges()
 			await delay(500) // artificial delay to show user that server is restarting
 			try {
-				await this.deleteConnection(serverName)
+				await this.deleteConnection(serverName, connection.server.source)
 				// Parse the config to validate it
 				const parsedConfig = JSON.parse(config)
 				try {
@@ -832,7 +881,8 @@ export class McpHub {
 			}
 		}
 
-		// Sort connections: first global servers in their defined order, then project servers in their defined order
+		// Sort connections: first project servers in their defined order, then global servers in their defined order
+		// This ensures that when servers have the same name, project servers are prioritized
 		const sortedConnections = [...this.connections].sort((a, b) => {
 			const aIsGlobal = a.server.source === "global" || !a.server.source
 			const bIsGlobal = b.server.source === "global" || !b.server.source
@@ -848,9 +898,18 @@ export class McpHub {
 				return indexA - indexB
 			}
 
-			// Global servers come before project servers
-			return aIsGlobal ? -1 : 1
+			// Project servers come before global servers (reversed from original)
+			return aIsGlobal ? 1 : -1
 		})
+
+		// Add debug logging for server order
+		console.log(
+			"[MCP] Sorted servers for webview:",
+			sortedConnections.map((conn) => ({
+				name: conn.server.name,
+				source: conn.server.source || "global",
+			})),
+		)
 
 		// Send sorted servers to webview
 		await this.providerRef.deref()?.postMessageToWebview({
@@ -859,16 +918,21 @@ export class McpHub {
 		})
 	}
 
-	public async toggleServerDisabled(serverName: string, disabled: boolean): Promise<void> {
+	public async toggleServerDisabled(
+		serverName: string,
+		disabled: boolean,
+		source?: "global" | "project",
+	): Promise<void> {
 		try {
 			// Find the connection to determine if it's a global or project server
-			const connection = this.connections.find((conn) => conn.server.name === serverName)
+			const connection = this.findConnection(serverName, source)
 			if (!connection) {
-				throw new Error(`Server ${serverName} not found`)
+				throw new Error(`Server ${serverName}${source ? ` with source ${source}` : ""} not found`)
 			}
 
+			const serverSource = connection.server.source || "global"
 			// Update the server config in the appropriate file
-			await this.updateServerConfig(serverName, { disabled }, connection.server.source || "global")
+			await this.updateServerConfig(serverName, { disabled }, serverSource)
 
 			// Update the connection object
 			if (connection) {
@@ -877,9 +941,12 @@ export class McpHub {
 
 					// Only refresh capabilities if connected
 					if (connection.server.status === "connected") {
-						connection.server.tools = await this.fetchToolsList(serverName)
-						connection.server.resources = await this.fetchResourcesList(serverName)
-						connection.server.resourceTemplates = await this.fetchResourceTemplatesList(serverName)
+						connection.server.tools = await this.fetchToolsList(serverName, serverSource)
+						connection.server.resources = await this.fetchResourcesList(serverName, serverSource)
+						connection.server.resourceTemplates = await this.fetchResourceTemplatesList(
+							serverName,
+							serverSource,
+						)
 					}
 				} catch (error) {
 					console.error(`Failed to refresh capabilities for ${serverName}:`, error)
@@ -962,12 +1029,16 @@ export class McpHub {
 		await fs.writeFile(configPath, JSON.stringify(updatedConfig, null, 2))
 	}
 
-	public async updateServerTimeout(serverName: string, timeout: number): Promise<void> {
+	public async updateServerTimeout(
+		serverName: string,
+		timeout: number,
+		source?: "global" | "project",
+	): Promise<void> {
 		try {
 			// Find the connection to determine if it's a global or project server
-			const connection = this.connections.find((conn) => conn.server.name === serverName)
+			const connection = this.findConnection(serverName, source)
 			if (!connection) {
-				throw new Error(`Server ${serverName} not found`)
+				throw new Error(`Server ${serverName}${source ? ` with source ${source}` : ""} not found`)
 			}
 
 			// Update the server config in the appropriate file
@@ -980,16 +1051,17 @@ export class McpHub {
 		}
 	}
 
-	public async deleteServer(serverName: string): Promise<void> {
+	public async deleteServer(serverName: string, source?: "global" | "project"): Promise<void> {
 		try {
 			// Find the connection to determine if it's a global or project server
-			const connection = this.connections.find((conn) => conn.server.name === serverName)
+			const connection = this.findConnection(serverName, source)
 			if (!connection) {
-				throw new Error(`Server ${serverName} not found`)
+				throw new Error(`Server ${serverName}${source ? ` with source ${source}` : ""} not found`)
 			}
 
+			const serverSource = connection.server.source || "global"
 			// Determine config file based on server source
-			const isProjectServer = connection.server.source === "project"
+			const isProjectServer = serverSource === "project"
 			let configPath: string
 
 			if (isProjectServer) {
@@ -1035,7 +1107,7 @@ export class McpHub {
 				await fs.writeFile(configPath, JSON.stringify(updatedConfig, null, 2))
 
 				// Update server connections with the correct source
-				await this.updateServerConnections(config.mcpServers, connection.server.source || "global")
+				await this.updateServerConnections(config.mcpServers, serverSource)
 
 				vscode.window.showInformationMessage(t("common:info.mcp_server_deleted", { serverName }))
 			} else {
@@ -1047,10 +1119,10 @@ export class McpHub {
 		}
 	}
 
-	async readResource(serverName: string, uri: string): Promise<McpResourceResponse> {
-		const connection = this.connections.find((conn) => conn.server.name === serverName)
+	async readResource(serverName: string, uri: string, source?: "global" | "project"): Promise<McpResourceResponse> {
+		const connection = this.findConnection(serverName, source)
 		if (!connection) {
-			throw new Error(`No connection found for server: ${serverName}`)
+			throw new Error(`No connection found for server: ${serverName}${source ? ` with source ${source}` : ""}`)
 		}
 		if (connection.server.disabled) {
 			throw new Error(`Server "${serverName}" is disabled`)
@@ -1070,11 +1142,12 @@ export class McpHub {
 		serverName: string,
 		toolName: string,
 		toolArguments?: Record<string, unknown>,
+		source?: "global" | "project",
 	): Promise<McpToolCallResponse> {
-		const connection = this.connections.find((conn) => conn.server.name === serverName)
+		const connection = this.findConnection(serverName, source)
 		if (!connection) {
 			throw new Error(
-				`No connection found for server: ${serverName}. Please make sure to use MCP servers available under 'Connected MCP Servers'.`,
+				`No connection found for server: ${serverName}${source ? ` with source ${source}` : ""}. Please make sure to use MCP servers available under 'Connected MCP Servers'.`,
 			)
 		}
 		if (connection.server.disabled) {
@@ -1106,18 +1179,26 @@ export class McpHub {
 		)
 	}
 
-	async toggleToolAlwaysAllow(serverName: string, toolName: string, shouldAllow: boolean): Promise<void> {
+	async toggleToolAlwaysAllow(
+		serverName: string,
+		source: "global" | "project",
+		toolName: string,
+		shouldAllow: boolean,
+	): Promise<void> {
 		try {
-			// Find the connection to determine if it's a global or project server
-			const connection = this.connections.find((conn) => conn.server.name === serverName)
+			console.log(
+				`Toggling tool ${toolName} for server ${serverName} (source: ${source}) to ${shouldAllow ? "allow" : "disallow"}`,
+			)
+			// Find the connection with matching name and source
+			const connection = this.findConnection(serverName, source)
+
 			if (!connection) {
-				throw new Error(`Server ${serverName} not found`)
+				throw new Error(`Server ${serverName} with source ${source} not found`)
 			}
 
-			const isProjectServer = connection.server.source === "project"
+			// Determine the correct config path based on the source
 			let configPath: string
-
-			if (isProjectServer) {
+			if (source === "project") {
 				// Get project MCP config path
 				const projectMcpPath = await this.getProjectMcpPath()
 				if (!projectMcpPath) {
@@ -1164,7 +1245,19 @@ export class McpHub {
 
 			// Update the tools list to reflect the change
 			if (connection) {
-				connection.server.tools = await this.fetchToolsList(serverName)
+				// Explicitly pass the source to ensure we're updating the correct server's tools
+				console.log(`Updating tools list for ${serverName} (source: ${source})`)
+				connection.server.tools = await this.fetchToolsList(serverName, source)
+
+				// Log the updated tools list for debugging
+				console.log(
+					`Updated tools list for ${serverName} (source: ${source}):`,
+					connection.server.tools.map((tool) => ({
+						name: tool.name,
+						alwaysAllow: tool.alwaysAllow,
+					})),
+				)
+
 				await this.notifyWebviewOfServerChanges()
 			}
 		} catch (error) {
@@ -1178,7 +1271,7 @@ export class McpHub {
 		this.removeAllFileWatchers()
 		for (const connection of this.connections) {
 			try {
-				await this.deleteConnection(connection.server.name)
+				await this.deleteConnection(connection.server.name, connection.server.source)
 			} catch (error) {
 				console.error(`Failed to close connection for ${connection.server.name}:`, error)
 			}

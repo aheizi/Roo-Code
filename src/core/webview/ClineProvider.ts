@@ -1246,7 +1246,7 @@ export class ClineProvider extends EventEmitter<ClineProviderEvents> implements 
 
 						try {
 							this.outputChannel.appendLine(`Attempting to delete MCP server: ${message.serverName}`)
-							await this.mcpHub?.deleteServer(message.serverName)
+							await this.mcpHub?.deleteServer(message.serverName, message.source as "global" | "project")
 							this.outputChannel.appendLine(`Successfully deleted MCP server: ${message.serverName}`)
 						} catch (error) {
 							const errorMessage = error instanceof Error ? error.message : String(error)
@@ -1257,7 +1257,7 @@ export class ClineProvider extends EventEmitter<ClineProviderEvents> implements 
 					}
 					case "restartMcpServer": {
 						try {
-							await this.mcpHub?.restartConnection(message.text!)
+							await this.mcpHub?.restartConnection(message.text!, message.source as "global" | "project")
 						} catch (error) {
 							this.outputChannel.appendLine(
 								`Failed to retry connection for ${message.text}: ${JSON.stringify(error, Object.getOwnPropertyNames(error), 2)}`,
@@ -1267,11 +1267,14 @@ export class ClineProvider extends EventEmitter<ClineProviderEvents> implements 
 					}
 					case "toggleToolAlwaysAllow": {
 						try {
-							await this.mcpHub?.toggleToolAlwaysAllow(
-								message.serverName!,
-								message.toolName!,
-								message.alwaysAllow!,
-							)
+							if (this.mcpHub) {
+								await this.mcpHub.toggleToolAlwaysAllow(
+									message.serverName!,
+									message.source as "global" | "project",
+									message.toolName!,
+									Boolean(message.alwaysAllow),
+								)
+							}
 						} catch (error) {
 							this.outputChannel.appendLine(
 								`Failed to toggle auto-approve for tool ${message.toolName}: ${JSON.stringify(error, Object.getOwnPropertyNames(error), 2)}`,
@@ -1281,7 +1284,11 @@ export class ClineProvider extends EventEmitter<ClineProviderEvents> implements 
 					}
 					case "toggleMcpServer": {
 						try {
-							await this.mcpHub?.toggleServerDisabled(message.serverName!, message.disabled!)
+							await this.mcpHub?.toggleServerDisabled(
+								message.serverName!,
+								message.disabled!,
+								message.source as "global" | "project",
+							)
 						} catch (error) {
 							this.outputChannel.appendLine(
 								`Failed to toggle MCP server ${message.serverName}: ${JSON.stringify(error, Object.getOwnPropertyNames(error), 2)}`,
@@ -1983,7 +1990,11 @@ export class ClineProvider extends EventEmitter<ClineProviderEvents> implements 
 					case "updateMcpTimeout":
 						if (message.serverName && typeof message.timeout === "number") {
 							try {
-								await this.mcpHub?.updateServerTimeout(message.serverName, message.timeout)
+								await this.mcpHub?.updateServerTimeout(
+									message.serverName,
+									message.timeout,
+									message.source as "global" | "project",
+								)
 							} catch (error) {
 								this.outputChannel.appendLine(
 									`Failed to update timeout for ${message.serverName}: ${JSON.stringify(error, Object.getOwnPropertyNames(error), 2)}`,

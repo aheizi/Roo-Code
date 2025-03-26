@@ -89,7 +89,11 @@ const McpView = ({ onDone }: McpViewProps) => {
 						{servers.length > 0 && (
 							<div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
 								{servers.map((server) => (
-									<ServerRow key={server.name} server={server} alwaysAllowMcp={alwaysAllowMcp} />
+									<ServerRow
+										key={`${server.name}-${server.source || "global"}`}
+										server={server}
+										alwaysAllowMcp={alwaysAllowMcp}
+									/>
 								))}
 							</div>
 						)}
@@ -163,6 +167,7 @@ const ServerRow = ({ server, alwaysAllowMcp }: { server: McpServer; alwaysAllowM
 		vscode.postMessage({
 			type: "restartMcpServer",
 			text: server.name,
+			source: server.source || "global",
 		})
 	}
 
@@ -172,6 +177,7 @@ const ServerRow = ({ server, alwaysAllowMcp }: { server: McpServer; alwaysAllowM
 		vscode.postMessage({
 			type: "updateMcpTimeout",
 			serverName: server.name,
+			source: server.source || "global",
 			timeout: seconds,
 		})
 	}
@@ -180,6 +186,7 @@ const ServerRow = ({ server, alwaysAllowMcp }: { server: McpServer; alwaysAllowM
 		vscode.postMessage({
 			type: "deleteMcpServer",
 			serverName: server.name,
+			source: server.source || "global",
 		})
 		setShowDeleteConfirm(false)
 	}
@@ -255,6 +262,7 @@ const ServerRow = ({ server, alwaysAllowMcp }: { server: McpServer; alwaysAllowM
 							vscode.postMessage({
 								type: "toggleMcpServer",
 								serverName: server.name,
+								source: server.source || "global",
 								disabled: !server.disabled,
 							})
 						}}
@@ -264,6 +272,7 @@ const ServerRow = ({ server, alwaysAllowMcp }: { server: McpServer; alwaysAllowM
 								vscode.postMessage({
 									type: "toggleMcpServer",
 									serverName: server.name,
+									source: server.source || "global",
 									disabled: !server.disabled,
 								})
 							}
@@ -345,9 +354,10 @@ const ServerRow = ({ server, alwaysAllowMcp }: { server: McpServer; alwaysAllowM
 										style={{ display: "flex", flexDirection: "column", gap: "8px", width: "100%" }}>
 										{server.tools.map((tool) => (
 											<McpToolRow
-												key={tool.name}
+												key={`${tool.name}-${server.name}-${server.source || "global"}`}
 												tool={tool}
 												serverName={server.name}
+												serverSource={server.source || "global"}
 												alwaysAllowMcp={alwaysAllowMcp}
 											/>
 										))}
