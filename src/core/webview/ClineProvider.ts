@@ -1220,7 +1220,7 @@ export class ClineProvider extends EventEmitter<ClineProviderEvents> implements 
 					}
 					case "openProjectMcpSettings": {
 						if (!vscode.workspace.workspaceFolders?.length) {
-							vscode.window.showErrorMessage("Please open a project folder first")
+							vscode.window.showErrorMessage(t("common:no_workspace"))
 							return
 						}
 
@@ -1236,7 +1236,7 @@ export class ClineProvider extends EventEmitter<ClineProviderEvents> implements 
 							}
 							await openFile(mcpPath)
 						} catch (error) {
-							vscode.window.showErrorMessage(`Failed to create or open .roo/mcp.json: ${error}`)
+							vscode.window.showErrorMessage(t("common:errors.create_mcp_json", { error: `${error}` }))
 						}
 						break
 					}

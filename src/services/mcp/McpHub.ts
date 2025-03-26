@@ -266,7 +266,7 @@ export class McpHub {
 				vscode.window.showErrorMessage(t("common:errors.invalid_mcp_settings_validation", { errorMessages }))
 			}
 		} catch (error) {
-			this.showErrorMessage("Failed to update project MCP servers", error)
+			this.showErrorMessage(t("common:errors.failed_update_project_mcp"), error)
 		}
 	}
 
