@@ -167,6 +167,10 @@ jest.mock("vscode", () => ({
 		joinPath: jest.fn(),
 		file: jest.fn(),
 	},
+	CodeActionKind: {
+		QuickFix: { value: "quickfix" },
+		RefactorRewrite: { value: "refactor.rewrite" },
+	},
 	window: {
 		showInformationMessage: jest.fn(),
 		showErrorMessage: jest.fn(),
@@ -434,7 +438,9 @@ describe("ClineProvider", () => {
 			},
 			customInstructions: undefined,
 			alwaysAllowReadOnly: false,
+			alwaysAllowReadOnlyOutsideWorkspace: false,
 			alwaysAllowWrite: false,
+			alwaysAllowWriteOutsideWorkspace: false,
 			alwaysAllowExecute: false,
 			alwaysAllowBrowser: false,
 			alwaysAllowMcp: false,
