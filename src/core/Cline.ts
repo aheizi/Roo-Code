@@ -28,6 +28,7 @@ import { readFileTool } from "./tools/readFileTool"
 import { ExitCodeDetails } from "../integrations/terminal/TerminalProcess"
 import { Terminal } from "../integrations/terminal/Terminal"
 import { TerminalRegistry } from "../integrations/terminal/TerminalRegistry"
+import { getTaskDirectoryPath } from "../shared/storagePathManager"
 import { UrlContentFetcher } from "../services/browser/UrlContentFetcher"
 import { listFiles } from "../services/glob/list-files"
 import { CheckpointStorage } from "../shared/checkpoints"
@@ -289,7 +290,6 @@ export class Cline extends EventEmitter<ClineEvents> {
 		}
 
 		// Use storagePathManager to retrieve the task storage directory
-		const { getTaskDirectoryPath } = await import("../shared/storagePathManager")
 		return getTaskDirectoryPath(globalStoragePath, this.taskId)
 	}
 
