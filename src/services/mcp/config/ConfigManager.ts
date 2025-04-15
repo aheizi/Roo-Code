@@ -9,6 +9,7 @@ import { GlobalFileNames } from "../../../shared/globalFileNames"
 import { fileExistsAtPath } from "../../../utils/fs"
 import { ServerConfig, McpServer, ConfigSource } from "../types"
 import { ConfigChangeEvent, ConfigChangeListener } from "./types"
+import { safeParseSeverConfig } from "./validation"
 
 /**
  * Configuration Manager
@@ -27,26 +28,7 @@ export class ConfigManager {
 	/** Configuration file path cache */
 	private configPaths: Partial<Record<ConfigSource, string>> = {}
 
-	// Validation schemas
-	private readonly ServerConfigSchema = z.object({
-		type: z.enum(["stdio", "sse"]),
-		command: z.string().optional(),
-		args: z.array(z.string()).optional(),
-		env: z.record(z.string()).optional(),
-		url: z.string().optional(),
-		headers: z.record(z.string()).optional(),
-		disabled: z.boolean().optional(),
-		timeout: z
-			.number()
-			.optional()
-			.refine(
-				(val) => val === undefined || (val >= 0 && val <= 3600),
-				(val) => ({ message: `Timeout must be between 0 and 3600 seconds, got ${val}` }),
-			),
-		alwaysAllow: z.array(z.string()).optional(),
-		watchPaths: z.array(z.string()).optional(),
-	})
-
+	// Validation schema for MCP settings
 	private readonly McpSettingsSchema = z.object({
 		mcpServers: z.record(z.any()),
 	})
@@ -131,12 +113,6 @@ export class ConfigManager {
 		}
 	}
 
-	private inferServerType(config: Record<string, unknown>): "stdio" | "sse" | undefined {
-		if (config.command) return "stdio"
-		if (config.url) return "sse"
-		return undefined
-	}
-
 	/**
 	 * Validate server configuration
 	 * @param config Configuration object to validate
@@ -146,23 +122,7 @@ export class ConfigManager {
 	public validateServerConfig(config: unknown, serverName?: string): ServerConfig {
 		try {
 			const configCopy = { ...(config as Record<string, unknown>) }
-
-			if (!configCopy.type) {
-				configCopy.type = this.inferServerType(configCopy)
-			}
-
-			const hasStdioFields = configCopy.command !== undefined
-			const hasSseFields = configCopy.url !== undefined
-
-			if (hasStdioFields && hasSseFields) {
-				throw new Error(t("common:errors.invalid_mcp_config"))
-			}
-
-			if (!hasStdioFields && !hasSseFields) {
-				throw new Error(t("common:errors.invalid_mcp_config"))
-			}
-
-			const result = this.ServerConfigSchema.safeParse(configCopy)
+			const result = safeParseSeverConfig(configCopy)
 			if (!result.success) {
 				const errors = result.error.errors.map((err) => `${err.path.join(".")}: ${err.message}`).join(", ")
 				throw new Error(t("common:errors.invalid_mcp_settings_validation", { errorMessages: errors }))
@@ -188,14 +148,6 @@ export class ConfigManager {
 				config = JSON.parse(content)
 			} catch (parseError) {
 				throw new Error(t("common:errors.invalid_mcp_settings_syntax"))
-			}
-
-			if (config.mcpServers && typeof config.mcpServers === "object") {
-				Object.values(config.mcpServers).forEach((server: any) => {
-					if (!server.type) {
-						server.type = this.inferServerType(server)
-					}
-				})
 			}
 
 			const result = this.McpSettingsSchema.safeParse(config)

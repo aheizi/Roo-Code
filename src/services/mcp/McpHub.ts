@@ -1,9 +1,9 @@
 import * as vscode from "vscode"
 import { ClineProvider } from "../../core/webview/ClineProvider"
-import { ConfigManager } from "./config"
 import type { ConfigChangeEvent } from "./config"
-import { ConnectionFactory, ConnectionManager, StdioHandler, SseHandler } from "./connection"
-import { McpServer, McpToolCallResponse, McpResourceResponse, ServerConfig, ConfigSource, McpConnection } from "./types"
+import { ConfigManager } from "./config"
+import { ConnectionFactory, ConnectionManager, SseHandler, StdioHandler } from "./connection"
+import { ConfigSource, McpConnection, McpResourceResponse, McpServer, McpToolCallResponse, ServerConfig } from "./types"
 
 export class McpHub {
 	private configManager: ConfigManager
@@ -11,6 +11,8 @@ export class McpHub {
 	private disposables: vscode.Disposable[] = []
 	private providerRef: WeakRef<ClineProvider>
 	private isConnectingFlag = false
+	private refCount: number = 0 // Reference counter for active clients
+	private isDisposed = false // Flag to prevent multiple disposals
 
 	constructor(private provider: ClineProvider) {
 		this.providerRef = new WeakRef(provider)
@@ -48,6 +50,41 @@ export class McpHub {
 	}
 
 	/**
+	 * Registers a client (e.g., ClineProvider) using this hub.
+	 * Increments the reference count.
+	 */
+	public registerClient(): void {
+		this.refCount++
+		console.log(`McpHub: Client registered. Ref count: ${this.refCount}`)
+	}
+
+	/**
+	 * Unregisters a client. Decrements the reference count.
+	 * If the count reaches zero, disposes the hub.
+	 */
+	public async unregisterClient(): Promise<void> {
+		this.refCount--
+		console.log(`McpHub: Client unregistered. Ref count: ${this.refCount}`)
+		if (this.refCount <= 0) {
+			console.log("McpHub: Last client unregistered. Disposing hub.")
+			await this.dispose()
+		}
+	}
+
+	/**
+	 * Get the path where MCP servers should be stored
+	 * @returns Path to MCP servers directory
+	 */
+	async getMcpServersPath(): Promise<string> {
+		const provider = this.providerRef.deref()
+		if (!provider) {
+			throw new Error("Provider not available")
+		}
+		const mcpServersPath = await provider.ensureMcpServersDirectoryExists()
+		return mcpServersPath
+	}
+
+	/**
 	 * Execute a server action with common checks.
 	 */
 	private async executeServerAction<T>(
@@ -73,7 +110,9 @@ export class McpHub {
 				? await this.configManager.getGlobalConfigPath(this.provider)
 				: await this.configManager.getProjectConfigPath()
 		if (!configPath) throw new Error(`Cannot get config path for source: ${source}`)
-		return configPath
+		// Normalize path for cross-platform compatibility
+		// Use a consistent path format for both reading and writing
+		return process.platform === "win32" ? configPath.replace(/\\/g, "/") : configPath
 	}
 
 	/**
@@ -109,6 +148,14 @@ export class McpHub {
 
 	async getGlobalConfigPath(provider: ClineProvider): Promise<string> {
 		return this.configManager.getGlobalConfigPath(provider)
+	}
+
+	async getGlobalMcpSettingsFilePath(): Promise<string> {
+		const provider = this.providerRef.deref()
+		if (!provider) {
+			throw new Error("Provider not available")
+		}
+		return this.getGlobalConfigPath(provider)
 	}
 
 	async callTool(
@@ -292,7 +339,35 @@ export class McpHub {
 	}
 
 	async dispose(): Promise<void> {
-		await this.connectionManager.dispose()
-		this.disposables.forEach((d) => d.dispose())
+		// Prevent multiple disposals
+		if (this.isDisposed) {
+			console.log("McpHub: Already disposed.")
+			return
+		}
+
+		// Check for active clients
+		if (this.refCount > 0) {
+			console.log(`McpHub: Cannot dispose, still has ${this.refCount} active clients`)
+			return
+		}
+
+		console.log("McpHub: Disposing...")
+		this.isDisposed = true
+
+		try {
+			// Dispose connection manager (includes file watchers and connections)
+			await this.connectionManager.dispose()
+		} catch (error) {
+			console.error("Failed to dispose connection manager:", error)
+		}
+
+		// Dispose all other disposables
+		for (const disposable of this.disposables) {
+			try {
+				disposable.dispose()
+			} catch (error) {
+				console.error("Failed to dispose disposable:", error)
+			}
+		}
 	}
 }

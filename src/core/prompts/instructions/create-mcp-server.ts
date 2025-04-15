@@ -11,7 +11,7 @@ export async function createMCPServerInstructions(
 
 When creating MCP servers, it's important to understand that they operate in a non-interactive environment. The server cannot initiate OAuth flows, open browser windows, or prompt for user input during runtime. All credentials and authentication tokens must be provided upfront through environment variables in the MCP settings configuration. For example, Spotify's API uses OAuth to get a refresh token for the user, but the MCP server cannot initiate this flow. While you can walk the user through obtaining an application client ID and secret, you may have to create a separate one-time setup script (like get-refresh-token.js) that captures and logs the final piece of the puzzle: the user's refresh token (i.e. you might run the script using execute_command which would open a browser for authentication, and then log the refresh token so that you can see it in the command output for you to use in the MCP settings configuration).
 
-Unless the user specifies otherwise, new local MCP servers should be created in: /mock/settings/path
+Unless the user specifies otherwise, new local MCP servers should be created in: ${await mcpHub.getMcpServersPath()}
 
 ### MCP Server Types and Configuration
 
@@ -60,7 +60,7 @@ The following example demonstrates how to build a local MCP server that provides
 1. Use the \`create-typescript-server\` tool to bootstrap a new project in the default MCP servers directory:
 
 \`\`\`bash
-cd /mock/settings/path
+cd ${await mcpHub.getMcpServersPath()}
 npx @modelcontextprotocol/create-server weather-server
 cd weather-server
 # Install dependencies
@@ -360,7 +360,7 @@ npm run build
 
 4. Whenever you need an environment variable such as an API key to configure the MCP server, walk the user through the process of getting the key. For example, they may need to create an account and go to a developer dashboard to generate the key. Provide step-by-step instructions and URLs to make it easy for the user to retrieve the necessary information. Then use the ask_followup_question tool to ask the user for the key, in this case the OpenWeather API key.
 
-5. Install the MCP Server by adding the MCP server configuration to the settings file located at '/mock/settings/path/cline_mcp_settings.json'. The settings file may have other MCP servers already configured, so you would read it first and then add your new server to the existing \`mcpServers\` object.
+5. Install the MCP Server by adding the MCP server configuration to the settings file located at '${await mcpHub.getGlobalMcpSettingsFilePath()}'. The settings file may have other MCP servers already configured, so you would read it first and then add your new server to the existing \`mcpServers\` object.
 
 IMPORTANT: Regardless of what else you see in the MCP settings file, you must default any new MCP servers you create to disabled=false and alwaysAllow=[].
 
