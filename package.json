@@ -3,7 +3,7 @@
 	"displayName": "%extension.displayName%",
 	"description": "%extension.description%",
 	"publisher": "RooVeterinaryInc",
-	"version": "3.11.17",
+	"version": "3.12.1",
 	"icon": "assets/icons/icon.png",
 	"galleryBanner": {
 		"color": "#617A91",
@@ -118,32 +118,32 @@
 			{
 				"command": "roo-cline.openInNewTab",
 				"title": "%command.openInNewTab.title%",
-				"category": "%extension.displayName%"
+				"category": "%configuration.title%"
 			},
 			{
 				"command": "roo-cline.explainCode",
 				"title": "%command.explainCode.title%",
-				"category": "%extension.displayName%"
+				"category": "%configuration.title%"
 			},
 			{
 				"command": "roo-cline.fixCode",
 				"title": "%command.fixCode.title%",
-				"category": "%extension.displayName%"
+				"category": "%configuration.title%"
 			},
 			{
 				"command": "roo-cline.improveCode",
 				"title": "%command.improveCode.title%",
-				"category": "%extension.displayName%"
+				"category": "%configuration.title%"
 			},
 			{
 				"command": "roo-cline.addToContext",
 				"title": "%command.addToContext.title%",
-				"category": "%extension.displayName%"
+				"category": "%configuration.title%"
 			},
 			{
 				"command": "roo-cline.newTask",
 				"title": "%command.newTask.title%",
-				"category": "%extension.displayName%"
+				"category": "%configuration.title%"
 			},
 			{
 				"command": "roo-cline.terminalAddToContext",
@@ -173,12 +173,17 @@
 			{
 				"command": "roo-cline.setCustomStoragePath",
 				"title": "%command.setCustomStoragePath.title%",
-				"category": "%extension.displayName%"
+				"category": "%configuration.title%"
 			},
 			{
 				"command": "roo-cline.focusInput",
 				"title": "%command.focusInput.title%",
-				"category": "%extension.displayName%"
+				"category": "%configuration.title%"
+			},
+			{
+				"command": "roo.acceptInput",
+				"title": "%command.acceptInput.title%",
+				"category": "%configuration.title%"
 			}
 		],
 		"menus": {
@@ -370,7 +375,7 @@
 		"pretest": "npm run compile",
 		"dev": "cd webview-ui && npm run dev",
 		"test": "node scripts/run-tests.js",
-		"test:extension": "jest",
+		"test:extension": "jest -w=40%",
 		"test:webview": "cd webview-ui && npm run test",
 		"prepare": "husky",
 		"publish:marketplace": "vsce publish && ovsx publish",
