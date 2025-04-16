@@ -1,7 +1,7 @@
 import { ServerConfig, McpConnection, McpServer, ConfigSource } from "../types"
 import { ConnectionHandler } from "./ConnectionHandler"
 import { FileWatcher } from "./FileWatcher"
-import { ConfigManager } from "../config/ConfigManager"
+import { ConfigManager } from "../config"
 
 /**
  * Connection factory class
@@ -70,14 +70,25 @@ export class ConnectionFactory {
 		}
 
 		// Prefer parameter callback, otherwise use the callback from factory constructor
-		const statusChangeCb = onStatusChange
-			? (server: McpServer) => {
-					onStatusChange(server)
-					if (this.onStatusChange) this.onStatusChange(server)
+		let statusChangeCb: ((server: McpServer) => void) | undefined
+
+		if (onStatusChange) {
+			// If parameter callback is provided, call both it and the factory callback if present
+			statusChangeCb = (server: McpServer) => {
+				onStatusChange(server)
+				if (this.onStatusChange) {
+					this.onStatusChange(server)
 				}
-			: this.onStatusChange
-				? (server: McpServer) => this.onStatusChange && this.onStatusChange(server)
-				: undefined
+			}
+		} else if (this.onStatusChange) {
+			// If only factory callback is present, use that
+			statusChangeCb = (server: McpServer) => {
+				this.onStatusChange!(server)
+			}
+		} else {
+			// No callbacks provided
+			statusChangeCb = undefined
+		}
 
 		// Use handler to create connection
 		const connection = await handler.createConnection(name, patchedConfig, source, statusChangeCb)

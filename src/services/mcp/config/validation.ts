@@ -64,6 +64,6 @@ export const validateServerConfig = (config: unknown): ServerConfig => {
  * @param config The configuration object to validate
  * @returns The validation result
  */
-export const safeParseSeverConfig = (config: unknown): z.SafeParseReturnType<unknown, ServerConfig> => {
+export const safeParseServerConfig = (config: unknown): z.SafeParseReturnType<unknown, ServerConfig> => {
 	return createServerConfigSchema().safeParse(config)
 }

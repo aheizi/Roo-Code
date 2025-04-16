@@ -9,7 +9,7 @@ import { GlobalFileNames } from "../../../shared/globalFileNames"
 import { fileExistsAtPath } from "../../../utils/fs"
 import { ServerConfig, McpServer, ConfigSource } from "../types"
 import { ConfigChangeEvent, ConfigChangeListener } from "./types"
-import { safeParseSeverConfig } from "./validation"
+import { safeParseServerConfig } from "./validation"
 
 /**
  * Configuration Manager
@@ -92,7 +92,6 @@ export class ConfigManager {
 	 * @param error Error object
 	 */
 	private showErrorMessage(message: string, error: unknown): never {
-		const errorMessage = error instanceof Error ? error.message : `${error}`
 		console.error(`${message}:`, error)
 		if (vscode.window && typeof vscode.window.showErrorMessage === "function") {
 			vscode.window.showErrorMessage(message)
@@ -122,7 +121,7 @@ export class ConfigManager {
 	public validateServerConfig(config: unknown, serverName?: string): ServerConfig {
 		try {
 			const configCopy = { ...(config as Record<string, unknown>) }
-			const result = safeParseSeverConfig(configCopy)
+			const result = safeParseServerConfig(configCopy)
 			if (!result.success) {
 				const errors = result.error.errors.map((err) => `${err.path.join(".")}: ${err.message}`).join(", ")
 				throw new Error(t("common:errors.invalid_mcp_settings_validation", { errorMessages: errors }))
