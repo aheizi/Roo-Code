@@ -3,6 +3,7 @@ import { t } from "../../../i18n"
 import { ConfigManager } from "../config/ConfigManager"
 import { ServerConfig, McpConnection, McpServer, ConfigSource } from "../types"
 import { ConnectionFactory } from "./ConnectionFactory"
+import deepEqual from "fast-deep-equal"
 
 /**
  * Connection manager class
@@ -131,7 +132,8 @@ export class ConnectionManager {
 					const strippedCurrent = stripNonConnectionFields(currentConfig)
 					const strippedValidated = stripNonConnectionFields(validatedConfig)
 
-					if (JSON.stringify(strippedCurrent) !== JSON.stringify(strippedValidated)) {
+					// Use deep comparison from fast-deep-equal instead of JSON.stringify
+					if (!deepEqual(strippedCurrent, strippedValidated)) {
 						await this.factory.closeConnection(serverName, source)
 
 						// If server is not disabled, create new connection
