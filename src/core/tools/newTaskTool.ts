@@ -1,10 +1,9 @@
-import { ToolUse } from "../assistant-message"
-import { HandleError, PushToolResult, RemoveClosingTag } from "./types"
+import delay from "delay"
+
+import { ToolUse, AskApproval, HandleError, PushToolResult, RemoveClosingTag } from "../../shared/tools"
 import { Cline } from "../Cline"
-import { AskApproval } from "./types"
 import { defaultModeSlug, getModeBySlug } from "../../shared/modes"
 import { formatResponse } from "../prompts/responses"
-import delay from "delay"
 
 export async function newTaskTool(
 	cline: Cline,
@@ -16,6 +15,7 @@ export async function newTaskTool(
 ) {
 	const mode: string | undefined = block.params.mode
 	const message: string | undefined = block.params.message
+
 	try {
 		if (block.partial) {
 			const partialMessage = JSON.stringify({
@@ -23,23 +23,29 @@ export async function newTaskTool(
 				mode: removeClosingTag("mode", mode),
 				message: removeClosingTag("message", message),
 			})
+
 			await cline.ask("tool", partialMessage, block.partial).catch(() => {})
 			return
 		} else {
 			if (!mode) {
 				cline.consecutiveMistakeCount++
+				cline.recordToolUsage({ toolName: "new_task", success: false })
 				pushToolResult(await cline.sayAndCreateMissingParamError("new_task", "mode"))
 				return
 			}
+
 			if (!message) {
 				cline.consecutiveMistakeCount++
+				cline.recordToolUsage({ toolName: "new_task", success: false })
 				pushToolResult(await cline.sayAndCreateMissingParamError("new_task", "message"))
 				return
 			}
+
 			cline.consecutiveMistakeCount = 0
 
 			// Verify the mode exists
 			const targetMode = getModeBySlug(mode, (await cline.providerRef.deref()?.getState())?.customModes)
+
 			if (!targetMode) {
 				pushToolResult(formatResponse.toolError(`Invalid mode: ${mode}`))
 				return
@@ -50,6 +56,7 @@ export async function newTaskTool(
 				mode: targetMode.name,
 				content: message,
 			})
+
 			const didApprove = await askApproval("tool", toolMessage)
 
 			if (!didApprove) {
@@ -75,6 +82,7 @@ export async function newTaskTool(
 			cline.emit("taskSpawned", newCline.taskId)
 
 			pushToolResult(`Successfully created new task in ${targetMode.name} mode with message: ${message}`)
+			cline.recordToolUsage({ toolName: "new_task" })
 
 			// Set the isPaused flag to true so the parent
 			// task can wait for the sub-task to finish.

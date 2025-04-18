@@ -1,12 +1,12 @@
 // npx jest src/core/tools/__tests__/executeCommandTool.test.ts
 
 import { describe, expect, it, jest, beforeEach } from "@jest/globals"
+
 import { executeCommandTool } from "../executeCommandTool"
 import { Cline } from "../../Cline"
-import { ToolUse } from "../../assistant-message"
 import { formatResponse } from "../../prompts/responses"
-import { AskApproval, HandleError, PushToolResult, RemoveClosingTag } from "../types"
-import { ClineAsk } from "../../../schemas"
+import { ToolUse, AskApproval, HandleError, PushToolResult, RemoveClosingTag } from "../../../shared/tools"
+import { ToolUsage } from "../../../schemas"
 
 // Mock dependencies
 jest.mock("../../Cline")
@@ -41,6 +41,7 @@ describe("executeCommandTool", () => {
 				// @ts-expect-error - Jest mock function type issues
 				validateCommand: jest.fn().mockReturnValue(null),
 			},
+			recordToolUsage: jest.fn().mockReturnValue({} as ToolUsage),
 		}
 
 		// @ts-expect-error - Jest mock function type issues

@@ -12,21 +12,14 @@ import getFolderSize from "get-folder-size"
 import { serializeError } from "serialize-error"
 import * as vscode from "vscode"
 
-import { TokenUsage } from "../schemas"
+// schemas
+import { TokenUsage, ToolUsage, ToolName } from "../schemas"
+
+// api
 import { ApiHandler, buildApiHandler } from "../api"
 import { ApiStream } from "../api/transform/stream"
-import { DIFF_VIEW_URI_SCHEME, DiffViewProvider } from "../integrations/editor/DiffViewProvider"
-import { CheckpointServiceOptions, RepoPerTaskCheckpointService } from "../services/checkpoints"
-import { findToolName, formatContentBlockToMarkdown } from "../integrations/misc/export-markdown"
-import { fetchInstructionsTool } from "./tools/fetchInstructionsTool"
-import { listFilesTool } from "./tools/listFilesTool"
-import { readFileTool } from "./tools/readFileTool"
-import { ExitCodeDetails, TerminalProcess } from "../integrations/terminal/TerminalProcess"
-import { Terminal } from "../integrations/terminal/Terminal"
-import { TerminalRegistry } from "../integrations/terminal/TerminalRegistry"
-import { getTaskDirectoryPath } from "../shared/storagePathManager"
-import { UrlContentFetcher } from "../services/browser/UrlContentFetcher"
-import { listFiles } from "../services/glob/list-files"
+
+// shared
 import { ApiConfiguration } from "../shared/api"
 import { findLastIndex } from "../shared/array"
 import { combineApiRequests } from "../shared/combineApiRequests"
@@ -43,26 +36,36 @@ import { getApiMetrics } from "../shared/getApiMetrics"
 import { HistoryItem } from "../shared/HistoryItem"
 import { ClineAskResponse } from "../shared/WebviewMessage"
 import { GlobalFileNames } from "../shared/globalFileNames"
-import { defaultModeSlug, getModeBySlug, getFullModeDetails } from "../shared/modes"
+import { defaultModeSlug, getModeBySlug, getFullModeDetails, isToolAllowedForMode } from "../shared/modes"
 import { EXPERIMENT_IDS, experiments as Experiments, ExperimentId } from "../shared/experiments"
+import { formatLanguage } from "../shared/language"
+import { ToolParamName, ToolResponse } from "../shared/tools"
+import { getTaskDirectoryPath } from "../shared/storagePathManager"
+
+// services
+import { UrlContentFetcher } from "../services/browser/UrlContentFetcher"
+import { listFiles } from "../services/glob/list-files"
+import { BrowserSession } from "../services/browser/BrowserSession"
+import { McpHub } from "../services/mcp/McpHub"
+import { telemetryService } from "../services/telemetry/TelemetryService"
+import { CheckpointServiceOptions, RepoPerTaskCheckpointService } from "../services/checkpoints"
+
+// integrations
+import { DIFF_VIEW_URI_SCHEME, DiffViewProvider } from "../integrations/editor/DiffViewProvider"
+import { findToolName, formatContentBlockToMarkdown } from "../integrations/misc/export-markdown"
+import { ExitCodeDetails, TerminalProcess } from "../integrations/terminal/TerminalProcess"
+import { Terminal } from "../integrations/terminal/Terminal"
+import { TerminalRegistry } from "../integrations/terminal/TerminalRegistry"
+
+// utils
 import { calculateApiCostAnthropic } from "../utils/cost"
 import { fileExistsAtPath } from "../utils/fs"
-import { arePathsEqual } from "../utils/path"
-import { parseMentions } from "./mentions"
-import { FileContextTracker } from "./context-tracking/FileContextTracker"
-import { RooIgnoreController } from "./ignore/RooIgnoreController"
-import { AssistantMessageContent, parseAssistantMessage, ToolParamName, ToolUseName } from "./assistant-message"
-import { formatResponse } from "./prompts/responses"
-import { SYSTEM_PROMPT } from "./prompts/system"
-import { truncateConversationIfNeeded } from "./sliding-window"
-import { ClineProvider } from "./webview/ClineProvider"
-import { BrowserSession } from "../services/browser/BrowserSession"
-import { formatLanguage } from "../shared/language"
-import { McpHub } from "../services/mcp/McpHub"
-import { DiffStrategy, getDiffStrategy } from "./diff/DiffStrategy"
-import { telemetryService } from "../services/telemetry/TelemetryService"
-import { validateToolUse, isToolAllowedForMode, ToolName } from "./mode-validator"
-import { getWorkspacePath } from "../utils/path"
+import { arePathsEqual, getWorkspacePath } from "../utils/path"
+
+// tools
+import { fetchInstructionsTool } from "./tools/fetchInstructionsTool"
+import { listFilesTool } from "./tools/listFilesTool"
+import { readFileTool } from "./tools/readFileTool"
 import { writeToFileTool } from "./tools/writeToFileTool"
 import { applyDiffTool } from "./tools/applyDiffTool"
 import { insertContentTool } from "./tools/insertContentTool"
@@ -77,8 +80,22 @@ import { askFollowupQuestionTool } from "./tools/askFollowupQuestionTool"
 import { switchModeTool } from "./tools/switchModeTool"
 import { attemptCompletionTool } from "./tools/attemptCompletionTool"
 import { newTaskTool } from "./tools/newTaskTool"
+import { appendToFileTool } from "./tools/appendToFileTool"
 
-export type ToolResponse = string | Array<Anthropic.TextBlockParam | Anthropic.ImageBlockParam>
+// prompts
+import { formatResponse } from "./prompts/responses"
+import { SYSTEM_PROMPT } from "./prompts/system"
+
+// ... everything else
+import { parseMentions } from "./mentions"
+import { FileContextTracker } from "./context-tracking/FileContextTracker"
+import { RooIgnoreController } from "./ignore/RooIgnoreController"
+import { type AssistantMessageContent, parseAssistantMessage } from "./assistant-message"
+import { truncateConversationIfNeeded } from "./sliding-window"
+import { ClineProvider } from "./webview/ClineProvider"
+import { DiffStrategy, getDiffStrategy } from "./diff/DiffStrategy"
+import { validateToolUse } from "./mode-validator"
+
 type UserContent = Array<Anthropic.Messages.ContentBlockParam>
 
 export type ClineEvents = {
@@ -90,8 +107,8 @@ export type ClineEvents = {
 	taskAskResponded: []
 	taskAborted: []
 	taskSpawned: [taskId: string]
-	taskCompleted: [taskId: string, usage: TokenUsage]
-	taskTokenUsageUpdated: [taskId: string, usage: TokenUsage]
+	taskCompleted: [taskId: string, tokenUsage: TokenUsage, toolUsage: ToolUsage]
+	taskTokenUsageUpdated: [taskId: string, tokenUsage: TokenUsage]
 }
 
 export type ClineOptions = {
@@ -172,6 +189,9 @@ export class Cline extends EventEmitter<ClineEvents> {
 	didRejectTool = false
 	private didAlreadyUseTool = false
 	private didCompleteReadingStream = false
+
+	// metrics
+	private toolUsage: ToolUsage = {}
 
 	constructor({
 		provider,
@@ -349,19 +369,15 @@ export class Cline extends EventEmitter<ClineEvents> {
 		this.emit("message", { action: "updated", message: partialMessage })
 	}
 
-	getTokenUsage() {
-		const usage = getApiMetrics(combineApiRequests(combineCommandSequences(this.clineMessages.slice(1))))
-		this.emit("taskTokenUsageUpdated", this.taskId, usage)
-		return usage
-	}
-
 	private async saveClineMessages() {
 		try {
 			const taskDir = await this.ensureTaskDirectoryExists()
 			const filePath = path.join(taskDir, GlobalFileNames.uiMessages)
 			await fs.writeFile(filePath, JSON.stringify(this.clineMessages))
-			// combined as they are in ChatView
-			const apiMetrics = this.getTokenUsage()
+
+			const tokenUsage = this.getTokenUsage()
+			this.emit("taskTokenUsageUpdated", this.taskId, tokenUsage)
+
 			const taskMessage = this.clineMessages[0] // first message is always the task say
 			const lastRelevantMessage =
 				this.clineMessages[
@@ -386,11 +402,11 @@ export class Cline extends EventEmitter<ClineEvents> {
 				number: this.taskNumber,
 				ts: lastRelevantMessage.ts,
 				task: taskMessage.text ?? "",
-				tokensIn: apiMetrics.totalTokensIn,
-				tokensOut: apiMetrics.totalTokensOut,
-				cacheWrites: apiMetrics.totalCacheWrites,
-				cacheReads: apiMetrics.totalCacheReads,
-				totalCost: apiMetrics.totalCost,
+				tokensIn: tokenUsage.totalTokensIn,
+				tokensOut: tokenUsage.totalTokensOut,
+				cacheWrites: tokenUsage.totalCacheWrites,
+				cacheReads: tokenUsage.totalCacheReads,
+				totalCost: tokenUsage.totalCost,
 				size: taskDirSize,
 				workspace: this.cwd,
 			})
@@ -572,7 +588,7 @@ export class Cline extends EventEmitter<ClineEvents> {
 		}
 	}
 
-	async sayAndCreateMissingParamError(toolName: ToolUseName, paramName: string, relPath?: string) {
+	async sayAndCreateMissingParamError(toolName: ToolName, paramName: string, relPath?: string) {
 		await this.say(
 			"error",
 			`Roo tried to use ${toolName}${
@@ -1390,6 +1406,8 @@ export class Cline extends EventEmitter<ClineEvents> {
 							return `[${block.name} for '${block.params.task}']`
 						case "write_to_file":
 							return `[${block.name} for '${block.params.path}']`
+						case "append_to_file":
+							return `[${block.name} for '${block.params.path}']`
 						case "apply_diff":
 							return `[${block.name} for '${block.params.path}']`
 						case "search_files":
@@ -1572,6 +1590,9 @@ export class Cline extends EventEmitter<ClineEvents> {
 				switch (block.name) {
 					case "write_to_file":
 						await writeToFileTool(this, block, askApproval, handleError, pushToolResult, removeClosingTag)
+						break
+					case "append_to_file":
+						await appendToFileTool(this, block, askApproval, handleError, pushToolResult, removeClosingTag)
 						break
 					case "apply_diff":
 						await applyDiffTool(this, block, askApproval, handleError, pushToolResult, removeClosingTag)
@@ -2670,5 +2691,27 @@ export class Cline extends EventEmitter<ClineEvents> {
 	// Public accessor for fileContextTracker
 	public getFileContextTracker(): FileContextTracker {
 		return this.fileContextTracker
+	}
+
+	// Metrics
+
+	public getTokenUsage() {
+		return getApiMetrics(combineApiRequests(combineCommandSequences(this.clineMessages.slice(1))))
+	}
+
+	public recordToolUsage({ toolName, success = true }: { toolName: ToolName; success?: boolean }) {
+		if (!this.toolUsage[toolName]) {
+			this.toolUsage[toolName] = { attempts: 0, failures: 0 }
+		}
+
+		this.toolUsage[toolName].attempts++
+
+		if (!success) {
+			this.toolUsage[toolName].failures++
+		}
+	}
+
+	public getToolUsage() {
+		return this.toolUsage
 	}
 }
