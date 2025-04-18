@@ -20,9 +20,10 @@ const createServerConfigSchema = () => {
 			args: z.array(z.string()).optional(),
 			cwd: z.string().default(() => vscode.workspace.workspaceFolders?.at(0)?.uri.fsPath ?? process.cwd()),
 			env: z.record(z.string()).optional(),
-			// Ensure no SSE fields are present
+			// Ensure no HTTP fields are present
 			url: z.undefined().optional(),
 			headers: z.undefined().optional(),
+			sessionId: z.undefined().optional(),
 		})
 			.transform((data) => ({
 				...data,
@@ -35,6 +36,7 @@ const createServerConfigSchema = () => {
 			type: z.enum(["sse"]).optional(),
 			url: z.string().url("URL must be a valid URL format"),
 			headers: z.record(z.string()).optional(),
+			sessionId: z.undefined().optional(),
 			// Ensure no stdio fields are present
 			command: z.undefined().optional(),
 			args: z.undefined().optional(),
@@ -46,6 +48,26 @@ const createServerConfigSchema = () => {
 				type: "sse" as const,
 			}))
 			.refine((data) => data.type === undefined || data.type === "sse", { message: typeErrorMessage }),
+
+		// Streamable HTTP config (has url field and optional sessionId)
+		BaseConfigSchema.extend({
+			type: z.enum(["streamable-http"]).optional(),
+			url: z.string().url("URL must be a valid URL format"),
+			headers: z.record(z.string()).optional(),
+			sessionId: z.string().optional(),
+			// Ensure no stdio fields are present
+			command: z.undefined().optional(),
+			args: z.undefined().optional(),
+			cwd: z.undefined().optional(),
+			env: z.undefined().optional(),
+		})
+			.transform((data) => ({
+				...data,
+				type: "streamable-http" as const,
+			}))
+			.refine((data) => data.type === undefined || data.type === "streamable-http", {
+				message: typeErrorMessage,
+			}),
 	])
 }
 

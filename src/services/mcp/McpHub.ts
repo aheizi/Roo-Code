@@ -2,7 +2,7 @@ import * as vscode from "vscode"
 import { ClineProvider } from "../../core/webview/ClineProvider"
 import type { ConfigChangeEvent } from "./config"
 import { ConfigManager } from "./config"
-import { ConnectionFactory, ConnectionManager, SseHandler, StdioHandler } from "./connection"
+import { ConnectionFactory, ConnectionManager, SseHandler, StdioHandler, StreamableHttpHandler } from "./connection"
 import { ConfigSource, McpConnection, McpResourceResponse, McpServer, McpToolCallResponse, ServerConfig } from "./types"
 
 export class McpHub {
@@ -24,6 +24,7 @@ export class McpHub {
 		)
 		connectionFactory.registerHandler(new StdioHandler())
 		connectionFactory.registerHandler(new SseHandler())
+		connectionFactory.registerHandler(new StreamableHttpHandler())
 
 		this.connectionManager = new ConnectionManager(this.configManager, connectionFactory)
 

@@ -1,6 +1,7 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js"
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js"
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js"
 
 /**
  * The source of the configuration: global or project.
@@ -11,7 +12,7 @@ export type ConfigSource = "global" | "project"
  * Server configuration type.
  */
 export type ServerConfig = {
-	type: "stdio" | "sse" | string // string allows for extensibility
+	type: "stdio" | "sse" | "streamable-http" | string // string allows for extensibility
 	command?: string
 	args?: string[]
 	env?: Record<string, string>
@@ -22,6 +23,7 @@ export type ServerConfig = {
 	timeout?: number
 	alwaysAllow?: string[]
 	watchPaths?: string[]
+	sessionId?: string // Added for streamable-http support
 }
 
 /**
@@ -30,7 +32,7 @@ export type ServerConfig = {
 export interface McpConnection {
 	server: McpServer
 	client: Client
-	transport: StdioClientTransport | SSEClientTransport
+	transport: StdioClientTransport | SSEClientTransport | StreamableHTTPClientTransport
 }
 
 /**

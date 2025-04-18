@@ -2,6 +2,7 @@ import { ServerConfig, McpConnection, McpServer, ConfigSource } from "../types"
 import { ConnectionHandler } from "./ConnectionHandler"
 import { FileWatcher } from "./FileWatcher"
 import { ConfigManager } from "../config"
+import { ClineProvider } from "../../../core/webview/ClineProvider"
 
 /**
  * Connection factory class
@@ -11,11 +12,11 @@ export class ConnectionFactory {
 	private handlers: ConnectionHandler[] = []
 	private connections: McpConnection[] = []
 	private fileWatcher: FileWatcher
-	private provider: any
+	private provider: ClineProvider
 	private configHandler: ConfigManager
 	private onStatusChange?: (server: McpServer) => void
 
-	constructor(configHandler: ConfigManager, provider?: any, onStatusChange?: (server: McpServer) => void) {
+	constructor(configHandler: ConfigManager, provider: ClineProvider, onStatusChange?: (server: McpServer) => void) {
 		this.configHandler = configHandler
 		this.fileWatcher = new FileWatcher()
 		this.provider = provider
@@ -58,7 +59,8 @@ export class ConnectionFactory {
 			if (patchedConfig.command) {
 				patchedConfig.type = "stdio"
 			} else if (patchedConfig.url) {
-				patchedConfig.type = "sse"
+				// If url is present, prefer streamable-http if headers are present, otherwise use sse
+				patchedConfig.type = patchedConfig.headers ? "streamable-http" : "sse"
 			}
 		}
 

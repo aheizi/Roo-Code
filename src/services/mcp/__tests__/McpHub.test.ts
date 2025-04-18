@@ -112,7 +112,10 @@ describe("McpHub", () => {
 		mockConfigManager.updateServerConfig = jest.fn().mockResolvedValue(undefined)
 
 		// Mock ConnectionFactory
-		mockConnectionFactory = new ConnectionFactory(mockConfigManager) as jest.Mocked<ConnectionFactory>
+		mockConnectionFactory = new ConnectionFactory(
+			mockConfigManager,
+			mockProvider as ClineProvider,
+		) as jest.Mocked<ConnectionFactory>
 
 		// Mock ConnectionManager
 		mockConnectionManager = new ConnectionManager(

@@ -124,8 +124,13 @@ export class ConnectionManager {
 					const currentConfig = JSON.parse(existingServer.config)
 
 					const stripNonConnectionFields = (configObj: any) => {
-						// Exclude alwaysAllow and timeout, timeout changes do not trigger reconnection
-						const { alwaysAllow: _alwaysAllow, timeout: _timeout, ...rest } = configObj
+						// Exclude changes do not trigger reconnection
+						const {
+							alwaysAllow: _alwaysAllow,
+							timeout: _timeout,
+							sessionId: _sessionId,
+							...rest
+						} = configObj
 						return rest
 					}
 
