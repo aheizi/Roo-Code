@@ -40,6 +40,7 @@ import { defaultModeSlug, getModeBySlug, getFullModeDetails, isToolAllowedForMod
 import { EXPERIMENT_IDS, experiments as Experiments, ExperimentId } from "../shared/experiments"
 import { formatLanguage } from "../shared/language"
 import { ToolParamName, ToolResponse } from "../shared/tools"
+import { getTaskDirectoryPath } from "../shared/storagePathManager"
 
 // services
 import { UrlContentFetcher } from "../services/browser/UrlContentFetcher"
@@ -301,7 +302,6 @@ export class Cline extends EventEmitter<ClineEvents> {
 		}
 
 		// Use storagePathManager to retrieve the task storage directory
-		const { getTaskDirectoryPath } = await import("../shared/storagePathManager")
 		return getTaskDirectoryPath(globalStoragePath, this.taskId)
 	}
 
