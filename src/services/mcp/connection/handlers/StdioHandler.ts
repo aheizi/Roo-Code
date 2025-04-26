@@ -17,6 +17,7 @@ import {
 	McpResourceTemplate,
 	McpServer,
 } from "../../types"
+import { injectEnv } from "../../../../utils/config"
 
 /**
  * Stdio connection handler
@@ -66,7 +67,7 @@ export class StdioHandler implements ConnectionHandler {
 			command: config.command,
 			args: config.args,
 			env: {
-				...config.env,
+				...(config.env ? await injectEnv(config.env) : {}),
 				...(process.env.PATH ? { PATH: process.env.PATH } : {}),
 			},
 			stderr: "pipe",
