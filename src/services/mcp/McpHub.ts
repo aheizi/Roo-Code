@@ -19,7 +19,7 @@ export class McpHub {
 
 		this.configManager = new ConfigManager()
 
-		const connectionFactory = new ConnectionFactory(this.configManager, provider, (server: McpServer) =>
+		const connectionFactory = new ConnectionFactory(this.configManager, provider, (_server: McpServer) =>
 			this.notifyServersChanged(),
 		)
 		connectionFactory.registerHandler(new StdioHandler())

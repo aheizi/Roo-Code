@@ -125,7 +125,7 @@ export class ConnectionManager {
 
 					const stripNonConnectionFields = (configObj: any) => {
 						// Exclude alwaysAllow and timeout, timeout changes do not trigger reconnection
-						const { alwaysAllow, timeout, ...rest } = configObj
+						const { alwaysAllow: _alwaysAllow, timeout: _timeout, ...rest } = configObj
 						return rest
 					}
 

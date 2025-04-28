@@ -118,7 +118,7 @@ export class ConfigManager {
 	 * @param serverName Optional server name for error messages
 	 * @returns Validated server configuration
 	 */
-	public validateServerConfig(config: unknown, serverName?: string): ServerConfig {
+	public validateServerConfig(config: unknown, _serverName?: string): ServerConfig {
 		try {
 			const configCopy = { ...(config as Record<string, unknown>) }
 			const result = safeParseServerConfig(configCopy)
