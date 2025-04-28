@@ -8,7 +8,6 @@ import { ConnectionManager } from "../connection"
 const fs = require("fs/promises")
 const { McpHub } = require("../McpHub")
 
-// Mock dependencies
 jest.mock("vscode", () => ({
 	workspace: {
 		createFileSystemWatcher: jest.fn().mockReturnValue({
