@@ -52,6 +52,10 @@
 		"title": "執行時繼續",
 		"tooltip": "儘管有警告仍繼續執行"
 	},
+	"killCommand": {
+		"title": "終止指令",
+		"tooltip": "終止目前的指令"
+	},
 	"resumeTask": {
 		"title": "繼續工作",
 		"tooltip": "繼續目前的工作"
@@ -86,6 +90,7 @@
 		}
 	},
 	"selectMode": "選擇互動模式",
+	"selectApiConfig": "選取 API 設定",
 	"enhancePrompt": "使用額外內容增強提示",
 	"addImages": "新增圖片到訊息中",
 	"sendMessage": "傳送訊息",
@@ -181,13 +186,6 @@
 		"hasQuestion": "Roo 有一個問題："
 	},
 	"taskCompleted": "工作完成",
-	"shellIntegration": {
-		"unavailable": "Shell 整合功能無法使用",
-		"troubleshooting": "仍有問題嗎？點擊此處查看 Shell 整合文件。",
-		"checkSettings": "檢查設定頁面中的終端解決方案",
-		"updateVSCode": "更新 VSCode",
-		"supportedShell": "確保使用支援的 shell：zsh、bash、fish 或 PowerShell"
-	},
 	"powershell": {
 		"issues": "看起來您遇到了 Windows PowerShell 的問題，請參考此處"
 	},
@@ -204,12 +202,12 @@
 		"copyToInput": "複製到輸入框（或按住 Shift 並點選）"
 	},
 	"announcement": {
-		"title": "🎉 Roo Code 3.14 已發布",
-		"description": "Roo Code 3.14 帶來基於您意見回饋的新功能與改進。",
+		"title": "🎉 Roo Code 3.15 已發布",
+		"description": "Roo Code 3.15 帶來基於您意見回饋的新功能與改進。",
 		"whatsNew": "新功能",
-		"feature1": "<bold>編輯工具增強</bold>: <code>search_and_replace</code> 和 <code>insert_content</code> 工具已獲改進，並從實驗階段升級為正式功能",
-		"feature2": "<bold>差異更新修復</bold>: 我們持續改進 <code>apply_diff</code> 工具",
-		"feature3": "<bold>大量其他改進</bold>: 擴充套件中眾多的修復和增強功能",
+		"feature1": "<bold>Vertex 提示詞快取</bold>: 為 Vertex AI 新增提示詞快取支援，改善回應時間並降低 API 費用",
+		"feature2": "<bold>終端機備援機制</bold>: 實作 VSCode 終端機 shell 整合失敗時的備援機制",
+		"feature3": "<bold>程式碼片段強化</bold>: 增強聊天介面中程式碼片段的渲染與互動體驗",
 		"hideButton": "隱藏公告",
 		"detailsDiscussLinks": "在 <discordLink>Discord</discordLink> 和 <redditLink>Reddit</redditLink> 取得更多詳細資訊並參與討論 🚀"
 	},
@@ -235,6 +233,19 @@
 			"close": "關閉瀏覽器"
 		}
 	},
+	"codeblock": {
+		"tooltips": {
+			"expand": "展開程式碼區塊",
+			"collapse": "摺疊程式碼區塊",
+			"enable_wrap": "啟用自動換行",
+			"disable_wrap": "停用自動換行",
+			"copy_code": "複製程式碼"
+		}
+	},
 	"systemPromptWarning": "警告：自訂系統提示詞覆蓋已啟用。這可能嚴重破壞功能並導致不可預測的行為。",
-	"selectApiConfig": "選取 API 設定"
+	"shellIntegration": {
+		"title": "命令執行警告",
+		"description": "您的命令正在沒有 VSCode 終端機 shell 整合的情況下執行。要隱藏此警告，您可以在 <settingsLink>Roo Code 設定</settingsLink>的 <strong>Terminal</strong> 部分停用 shell 整合，或使用下方連結排查 VSCode 終端機整合問題。",
+		"troubleshooting": "點擊此處查看 shell 整合文件。"
+	}
 }

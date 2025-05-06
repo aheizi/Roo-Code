@@ -22,6 +22,8 @@ type ProviderSettings = {
 				| "human-relay"
 				| "fake-ai"
 				| "xai"
+				| "groq"
+				| "chutes"
 		  )
 		| undefined
 	apiModelId?: string | undefined
@@ -51,7 +53,6 @@ type ProviderSettings = {
 	vertexRegion?: string | undefined
 	openAiBaseUrl?: string | undefined
 	openAiApiKey?: string | undefined
-	openAiHostHeader?: string | undefined
 	openAiLegacyFormat?: boolean | undefined
 	openAiR1FormatEnabled?: boolean | undefined
 	openAiModelId?: string | undefined
@@ -88,6 +89,13 @@ type ProviderSettings = {
 	openAiUseAzure?: boolean | undefined
 	azureApiVersion?: string | undefined
 	openAiStreamingEnabled?: boolean | undefined
+	enableReasoningEffort?: boolean | undefined
+	openAiHostHeader?: string | undefined
+	openAiHeaders?:
+		| {
+				[x: string]: string
+		  }
+		| undefined
 	ollamaModelId?: string | undefined
 	ollamaBaseUrl?: string | undefined
 	vsCodeLmModelSelector?:
@@ -105,6 +113,7 @@ type ProviderSettings = {
 	geminiApiKey?: string | undefined
 	googleGeminiBaseUrl?: string | undefined
 	openAiNativeApiKey?: string | undefined
+	openAiNativeBaseUrl?: string | undefined
 	mistralApiKey?: string | undefined
 	mistralCodestralUrl?: string | undefined
 	deepSeekBaseUrl?: string | undefined
@@ -114,6 +123,8 @@ type ProviderSettings = {
 	requestyApiKey?: string | undefined
 	requestyModelId?: string | undefined
 	xaiApiKey?: string | undefined
+	groqApiKey?: string | undefined
+	chutesApiKey?: string | undefined
 	modelMaxTokens?: number | undefined
 	modelMaxThinkingTokens?: number | undefined
 	includeMaxTokens?: boolean | undefined
@@ -154,6 +165,8 @@ type GlobalSettings = {
 							| "human-relay"
 							| "fake-ai"
 							| "xai"
+							| "groq"
+							| "chutes"
 					  )
 					| undefined
 		  }[]
@@ -211,6 +224,7 @@ type GlobalSettings = {
 	maxReadFileLine?: number | undefined
 	terminalOutputLineLimit?: number | undefined
 	terminalShellIntegrationTimeout?: number | undefined
+	terminalShellIntegrationDisabled?: boolean | undefined
 	terminalCommandDelay?: number | undefined
 	terminalPowershellCounter?: boolean | undefined
 	terminalZshClearEolMark?: boolean | undefined
@@ -311,12 +325,10 @@ type ClineMessage = {
 				| "mistake_limit_reached"
 				| "browser_action_launch"
 				| "use_mcp_server"
-				| "finishTask"
 		  )
 		| undefined
 	say?:
 		| (
-				| "task"
 				| "error"
 				| "api_req_started"
 				| "api_req_finished"
@@ -329,15 +341,11 @@ type ClineMessage = {
 				| "user_feedback"
 				| "user_feedback_diff"
 				| "command_output"
-				| "tool"
 				| "shell_integration_warning"
 				| "browser_action"
 				| "browser_action_result"
-				| "command"
 				| "mcp_server_request_started"
 				| "mcp_server_response"
-				| "new_task_started"
-				| "new_task"
 				| "subtask_result"
 				| "checkpoint_saved"
 				| "rooignore_error"
@@ -396,12 +404,10 @@ type RooCodeEvents = {
 							| "mistake_limit_reached"
 							| "browser_action_launch"
 							| "use_mcp_server"
-							| "finishTask"
 					  )
 					| undefined
 				say?:
 					| (
-							| "task"
 							| "error"
 							| "api_req_started"
 							| "api_req_finished"
@@ -414,15 +420,11 @@ type RooCodeEvents = {
 							| "user_feedback"
 							| "user_feedback_diff"
 							| "command_output"
-							| "tool"
 							| "shell_integration_warning"
 							| "browser_action"
 							| "browser_action_result"
-							| "command"
 							| "mcp_server_request_started"
 							| "mcp_server_response"
-							| "new_task_started"
-							| "new_task"
 							| "subtask_result"
 							| "checkpoint_saved"
 							| "rooignore_error"
