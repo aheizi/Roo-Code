@@ -26,7 +26,6 @@ jest.mock("../ignore/RooIgnoreController")
 
 // Mock storagePathManager to prevent dynamic import issues
 jest.mock("../../shared/storagePathManager", () => ({
-	__esModule: true,
 	getTaskDirectoryPath: jest
 		.fn()
 		.mockImplementation((globalStoragePath, taskId) => Promise.resolve(`${globalStoragePath}/tasks/${taskId}`)),
