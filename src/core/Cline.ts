@@ -35,7 +35,6 @@ import { HistoryItem } from "../shared/HistoryItem"
 import { ClineAskResponse } from "../shared/WebviewMessage"
 import { defaultModeSlug, getModeBySlug } from "../shared/modes"
 import { ToolParamName, ToolResponse, DiffStrategy } from "../shared/tools"
-import { getTaskDirectoryPath } from "../shared/storagePathManager"
 
 // services
 import { UrlContentFetcher } from "../services/browser/UrlContentFetcher"
@@ -295,16 +294,6 @@ export class Cline extends EventEmitter<ClineEvents> {
 	}
 
 	// API Messages
-
-	private async ensureTaskDirectoryExists(): Promise<string> {
-		const globalStoragePath = this.providerRef.deref()?.context.globalStorageUri.fsPath
-		if (!globalStoragePath) {
-			throw new Error("Global storage uri is invalid")
-		}
-
-		// Use storagePathManager to retrieve the task storage directory
-		return getTaskDirectoryPath(globalStoragePath, this.taskId)
-	}
 
 	private async getSavedApiConversationHistory(): Promise<Anthropic.MessageParam[]> {
 		return readApiMessages({ taskId: this.taskId, globalStoragePath: this.globalStoragePath })
