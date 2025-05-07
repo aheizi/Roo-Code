@@ -67,6 +67,8 @@ export interface ExtensionMessage {
 		| "toggleApiConfigPin"
 		| "acceptInput"
 		| "setHistoryPreviewCollapsed"
+		| "commandExecutionStatus"
+		| "vsCodeSetting"
 	text?: string
 	action?:
 		| "chatButtonClicked"
@@ -103,6 +105,8 @@ export interface ExtensionMessage {
 	promptText?: string
 	results?: { path: string; type: "file" | "folder"; label?: string }[]
 	error?: string
+	setting?: string
+	value?: any
 }
 
 export type ExtensionState = Pick<
@@ -143,6 +147,7 @@ export type ExtensionState = Pick<
 	// | "maxReadFileLine" // Optional in GlobalSettings, required here.
 	| "terminalOutputLineLimit"
 	| "terminalShellIntegrationTimeout"
+	| "terminalShellIntegrationDisabled"
 	| "terminalCommandDelay"
 	| "terminalPowershellCounter"
 	| "terminalZshClearEolMark"
