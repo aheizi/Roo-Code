@@ -7,9 +7,10 @@ import { t } from "../../../i18n"
 import { ClineProvider } from "../../../core/webview/ClineProvider"
 import { GlobalFileNames } from "../../../shared/globalFileNames"
 import { fileExistsAtPath } from "../../../utils/fs"
-import { ServerConfig, McpServer, ConfigSource } from "../types"
+import { ServerConfig } from "../types"
 import { ConfigChangeEvent, ConfigChangeListener } from "./types"
 import { safeParseServerConfig } from "./validation"
+import { ConfigSource, McpServer } from "../../../shared/mcp"
 
 /**
  * Configuration Manager

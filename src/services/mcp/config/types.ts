@@ -1,4 +1,5 @@
-import { ConfigSource, ServerConfig } from "../types"
+import { ServerConfig } from "../types"
+import { ConfigSource } from "../../../shared/mcp"
 
 /**
  * Configuration change event

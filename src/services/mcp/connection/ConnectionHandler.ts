@@ -1,4 +1,5 @@
-import { ServerConfig, McpConnection, McpServer, ConfigSource } from "../types"
+import { ServerConfig, McpConnection } from "../types"
+import { ConfigSource, McpServer } from "../../../shared/mcp"
 
 /**
  * Connection handler interface

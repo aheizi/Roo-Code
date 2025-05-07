@@ -1,29 +1,14 @@
-import { Client } from "@modelcontextprotocol/sdk/client/index.js"
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
-const packageJson = require("../../../../../package.json")
-const version: string = packageJson.version ?? "1.0.0"
-import {
-	ListToolsResultSchema,
-	ListResourcesResultSchema,
-	ListResourceTemplatesResultSchema,
-} from "@modelcontextprotocol/sdk/types.js"
-import { ConnectionHandler } from "../ConnectionHandler"
-import {
-	ServerConfig,
-	McpConnection,
-	ConfigSource,
-	McpTool,
-	McpResource,
-	McpResourceTemplate,
-	McpServer,
-} from "../../types"
+import { ServerConfig, McpConnection } from "../../types"
 import { injectEnv } from "../../../../utils/config"
+import { ConfigSource, McpServer } from "../../../../shared/mcp"
+import { BaseHandler } from "./base/BaseHandler"
 
 /**
  * Stdio connection handler
  * Responsible for creating and managing MCP connections based on stdio
  */
-export class StdioHandler implements ConnectionHandler {
+export class StdioHandler extends BaseHandler {
 	/**
 	 * Check if a specific connection type is supported
 	 * @param type Connection type
@@ -52,15 +37,7 @@ export class StdioHandler implements ConnectionHandler {
 		}
 
 		// Create client
-		const client = new Client(
-			{
-				name: "Roo Code",
-				version,
-			},
-			{
-				capabilities: {},
-			},
-		)
+		const client = this.createClient()
 
 		// Create transport
 		const transport = new StdioClientTransport({
@@ -81,6 +58,7 @@ export class StdioHandler implements ConnectionHandler {
 				status: "connecting",
 				disabled: config.disabled,
 				source,
+				errorHistory: [],
 			},
 			client,
 			transport,
@@ -121,29 +99,11 @@ export class StdioHandler implements ConnectionHandler {
 			connection.server.resourceTemplates = await this.fetchResourceTemplatesList(connection)
 		} catch (error) {
 			connection.server.status = "disconnected"
-			connection.server.error = error instanceof Error ? error.message : `${error}`
+			this.appendErrorMessage(connection, error instanceof Error ? error.message : `${error}`)
 			if (onStatusChange) onStatusChange(connection.server)
 		}
 
 		return connection
-	}
-
-	/**
-	 * Close connection
-	 * @param connection Connection to close
-	 */
-	async closeConnection(connection: McpConnection): Promise<void> {
-		try {
-			await connection.client.close()
-		} catch (error) {
-			console.error(`Error disconnecting client for ${connection.server.name}:`, error)
-		}
-
-		try {
-			await connection.transport.close()
-		} catch (error) {
-			console.error(`Error closing transport for ${connection.server.name}:`, error)
-		}
 	}
 
 	/**
@@ -152,7 +112,7 @@ export class StdioHandler implements ConnectionHandler {
 	 * @param transport Stdio transport
 	 * @param onStatusChange
 	 */
-	private setupErrorHandling(
+	protected setupErrorHandling(
 		connection: McpConnection,
 		transport: StdioClientTransport,
 		onStatusChange?: (server: McpServer) => void,
@@ -182,72 +142,6 @@ export class StdioHandler implements ConnectionHandler {
 				connection.server.error = `Process exited with code ${code}`
 			}
 			if (onStatusChange) onStatusChange(connection.server)
-		}
-	}
-
-	/**
-	 * Fetch tool list
-	 * @param connection MCP connection
-	 * @returns Tool list
-	 */
-	private async fetchToolsList(connection: McpConnection): Promise<McpTool[]> {
-		try {
-			const result = await connection.client.listTools()
-			const parsed = ListToolsResultSchema.parse(result)
-
-			return parsed.tools.map((tool: any) => ({
-				name: tool.name,
-				description: tool.description,
-				inputSchema: tool.input_schema as object | undefined,
-				alwaysAllow: false,
-			}))
-		} catch (error) {
-			// console.error(`Failed to fetch tools list for ${connection.server.name}:`, error)
-			return []
-		}
-	}
-
-	/**
-	 * Fetch resource list
-	 * @param connection MCP connection
-	 * @returns Resource list
-	 */
-	private async fetchResourcesList(connection: McpConnection): Promise<McpResource[]> {
-		try {
-			const result = await connection.client.listResources()
-			const parsed = ListResourcesResultSchema.parse(result)
-
-			return parsed.resources.map((resource: any) => ({
-				uri: resource.uri,
-				name: resource.name,
-				mimeType: resource.mime_type as string | undefined,
-				description: resource.description,
-			}))
-		} catch (error) {
-			// console.error(`Failed to fetch resources list for ${connection.server.name}:`, error)
-			return []
-		}
-	}
-
-	/**
-	 * Fetch resource template list
-	 * @param connection MCP connection
-	 * @returns Resource template list
-	 */
-	private async fetchResourceTemplatesList(connection: McpConnection): Promise<McpResourceTemplate[]> {
-		try {
-			const result = await connection.client.listResourceTemplates()
-			const parsed = ListResourceTemplatesResultSchema.parse(result)
-
-			return (parsed as any).templates.map((template: any) => ({
-				uri: template.uri,
-				name: template.name,
-				description: template.description,
-				inputSchema: template.input_schema as object | undefined,
-			}))
-		} catch (error) {
-			// console.error(`Failed to fetch resource templates list for ${connection.server.name}:`, error)
-			return []
 		}
 	}
 }

@@ -1,9 +1,10 @@
 import * as vscode from "vscode"
 import { t } from "../../../i18n"
-import { ConfigManager } from "../config/ConfigManager"
-import { ServerConfig, McpConnection, McpServer, ConfigSource } from "../types"
+import { ConfigManager } from "../config"
+import { ServerConfig, McpConnection } from "../types"
 import { ConnectionFactory } from "./ConnectionFactory"
 import deepEqual from "fast-deep-equal"
+import { ConfigSource, McpServer } from "../../../shared/mcp"
 
 /**
  * Connection manager class

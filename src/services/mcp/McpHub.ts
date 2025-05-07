@@ -3,7 +3,8 @@ import { ClineProvider } from "../../core/webview/ClineProvider"
 import type { ConfigChangeEvent } from "./config"
 import { ConfigManager } from "./config"
 import { ConnectionFactory, ConnectionManager, SseHandler, StdioHandler } from "./connection"
-import { ConfigSource, McpConnection, McpResourceResponse, McpServer, McpToolCallResponse, ServerConfig } from "./types"
+import { McpConnection, McpResourceResponse, McpToolCallResponse, ServerConfig } from "./types"
+import { ConfigSource, McpServer } from "../../shared/mcp"
 
 export class McpHub {
 	private configManager: ConfigManager
