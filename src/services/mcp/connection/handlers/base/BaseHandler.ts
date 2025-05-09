@@ -118,7 +118,7 @@ export abstract class BaseHandler implements ConnectionHandler {
 			return parsed.tools.map((tool: any) => ({
 				name: tool.name,
 				description: tool.description,
-				inputSchema: tool.input_schema as object | undefined,
+				inputSchema: tool.inputSchema as object | undefined,
 				alwaysAllow: false,
 			}))
 		} catch (error) {
@@ -140,7 +140,7 @@ export abstract class BaseHandler implements ConnectionHandler {
 			return parsed.resources.map((resource: any) => ({
 				uri: resource.uri,
 				name: resource.name,
-				mimeType: resource.mime_type as string | undefined,
+				mimeType: resource.mimeType as string | undefined,
 				description: resource.description,
 			}))
 		} catch (error) {
@@ -159,11 +159,11 @@ export abstract class BaseHandler implements ConnectionHandler {
 			const result = await connection.client.listResourceTemplates()
 			const parsed = ListResourceTemplatesResultSchema.parse(result)
 
-			return (parsed as any).templates.map((template: any) => ({
-				uri: template.uri,
+			return parsed.resourceTemplates.map((template: any) => ({
+				uriTemplate: template.uriTemplate,
 				name: template.name,
 				description: template.description,
-				inputSchema: template.input_schema as object | undefined,
+				mimeType: template.mimeType as string | undefined,
 			}))
 		} catch (error) {
 			// console.error(`Failed to fetch resource templates list for ${connection.server.name}:`, error)
