@@ -3,7 +3,7 @@ import * as path from "path"
 
 import delay from "delay"
 
-import { Cline } from "../Cline"
+import { Task } from "../task/Task"
 import { CommandExecutionStatus } from "../../schemas"
 import { ToolUse, AskApproval, HandleError, PushToolResult, RemoveClosingTag, ToolResponse } from "../../shared/tools"
 import { formatResponse } from "../prompts/responses"
@@ -16,7 +16,7 @@ import { Terminal } from "../../integrations/terminal/Terminal"
 class ShellIntegrationError extends Error {}
 
 export async function executeCommandTool(
-	cline: Cline,
+	cline: Task,
 	block: ToolUse,
 	askApproval: AskApproval,
 	handleError: HandleError,
@@ -114,7 +114,7 @@ export type ExecuteCommandOptions = {
 }
 
 export async function executeCommand(
-	cline: Cline,
+	cline: Task,
 	{
 		executionId,
 		command,
@@ -195,7 +195,7 @@ export async function executeCommand(
 	const terminal = await TerminalRegistry.getOrCreateTerminal(workingDir, !!customCwd, cline.taskId, terminalProvider)
 
 	if (terminal instanceof Terminal) {
-		terminal.terminal.show()
+		terminal.terminal.show(true)
 
 		// Update the working directory in case the terminal we asked for has
 		// a different working directory so that the model will know where the
