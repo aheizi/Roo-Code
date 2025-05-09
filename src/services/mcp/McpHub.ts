@@ -302,7 +302,7 @@ export class McpHub {
 	}
 
 	private async enhanceServersWithConnectionInfo(servers: McpServer[]): Promise<McpServer[]> {
-		const connectedServers = this.connectionManager["factory"].getAllServers()
+		const connectedServers = this.connectionManager.getAllServers()
 		for (const server of servers) {
 			const connected = connectedServers.find((s) => s.name === server.name && s.source === server.source)
 			if (connected) {

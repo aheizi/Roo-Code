@@ -112,17 +112,15 @@ export abstract class BaseHandler implements ConnectionHandler {
 	 */
 	protected async fetchToolsList(connection: McpConnection): Promise<McpTool[]> {
 		try {
-			const result = await connection.client.listTools()
-			const parsed = ListToolsResultSchema.parse(result)
+			const result = await connection.client.request({ method: "tools/list" }, ListToolsResultSchema)
 
-			return parsed.tools.map((tool: any) => ({
-				name: tool.name,
-				description: tool.description,
-				inputSchema: tool.input_schema as object | undefined,
-				alwaysAllow: false,
+			// Preserve ALL original properties from the tool object
+			return (result?.tools || []).map((tool: any) => ({
+				...tool, // Keep all original properties
+				alwaysAllow: false, // Will be set by updateToolAlwaysAllowStatus
 			}))
 		} catch (error) {
-			// console.error(`Failed to fetch tools list for ${connection.server.name}:`, error)
+			console.error(`Failed to fetch tools list for ${connection.server.name}:`, error)
 			return []
 		}
 	}
