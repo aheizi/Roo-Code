@@ -102,6 +102,10 @@ export class ConnectionFactory {
 			this.setupFileWatcher(connection, patchedConfig)
 		}
 
+		// Remove any existing object with the same name and source to avoid duplicates
+		this.connections = this.connections.filter(
+			(conn) => !(conn.server.name === name && conn.server.source === source),
+		)
 		this.connections.push(connection)
 		return connection
 	}
@@ -111,7 +115,7 @@ export class ConnectionFactory {
 	 * @param name Server name
 	 * @param source Optional config source
 	 */
-	async closeConnection(name: string, source?: ConfigSource): Promise<void> {
+	async closeConnection(name: string, source?: ConfigSource, allowKeep?: boolean): Promise<void> {
 		// Find and close connections
 		const connections = source ? this.findConnections(name, source) : this.findConnections(name)
 
@@ -126,12 +130,14 @@ export class ConnectionFactory {
 			}
 		}
 
-		// Remove from array
-		this.connections = this.connections.filter((conn) => {
-			if (conn.server.name !== name) return true
-			if (source && conn.server.source !== source) return true
-			return false
-		})
+		// Remove from array unless allowKeep is true
+		if (!allowKeep) {
+			this.connections = this.connections.filter((conn) => {
+				if (conn.server.name !== name) return true
+				if (source && conn.server.source !== source) return true
+				return false
+			})
+		}
 	}
 
 	/**
@@ -180,11 +186,20 @@ export class ConnectionFactory {
 		}
 
 		for (const conn of connections) {
+			// Set status to connecting
+			conn.server.status = "connecting"
+			conn.server.error = ""
+
+			// Notify status change if callback exists
+			if (this.onStatusChange) {
+				this.onStatusChange(conn.server)
+			}
+
 			const config = JSON.parse(conn.server.config)
 			const connSource = conn.server.source || "global"
 
-			// Close existing connection
-			await this.closeConnection(name, connSource)
+			// Close existing connection but do not remove the object, so notifyServersChanged can find "connecting"
+			await this.closeConnection(name, connSource, true)
 
 			// Create new connection
 			await this.createConnection(name, config, connSource)

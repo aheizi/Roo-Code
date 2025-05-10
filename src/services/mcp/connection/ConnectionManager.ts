@@ -126,7 +126,7 @@ export class ConnectionManager {
 
 					const stripNonConnectionFields = (configObj: any) => {
 						// Exclude alwaysAllow and timeout, timeout changes do not trigger reconnection
-						const { alwaysAllow: _alwaysAllow, timeout: _timeout, ...rest } = configObj
+						const { alwaysAllow: _alwaysAllow, timeout: _timeout, disabled: _disabled, ...rest } = configObj
 						return rest
 					}
 
@@ -136,11 +136,7 @@ export class ConnectionManager {
 					// Use deep comparison from fast-deep-equal instead of JSON.stringify
 					if (!deepEqual(strippedCurrent, strippedValidated)) {
 						await this.factory.closeConnection(serverName, source)
-
-						// If server is not disabled, create new connection
-						if (!validatedConfig.disabled) {
-							await this.factory.createConnection(serverName, validatedConfig, source)
-						}
+						await this.factory.createConnection(serverName, validatedConfig, source)
 					} else {
 						// No connection parameter change, but dynamic parameters like timeout may change, need to sync config field
 						// Ensure callTool always reads the latest config
@@ -151,7 +147,7 @@ export class ConnectionManager {
 							}
 						}
 					}
-				} else if (!validatedConfig.disabled) {
+				} else {
 					// Create new connection
 					await this.factory.createConnection(serverName, validatedConfig, source)
 				}
