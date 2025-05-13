@@ -3,7 +3,7 @@ import * as path from "path"
 import pdf from "pdf-parse/lib/pdf-parse"
 import mammoth from "mammoth"
 import fs from "fs/promises"
-import { isBinaryFile } from "isbinaryfile"
+import { readFileWithEncoding } from "./readFileWithEncoding"
 
 async function extractTextFromPDF(filePath: string): Promise<string> {
 	const dataBuffer = await fs.readFile(filePath)
@@ -61,12 +61,11 @@ export async function extractTextFromFile(filePath: string): Promise<string> {
 		return extractor(filePath)
 	}
 
-	// Handle other files
-	const isBinary = await isBinaryFile(filePath).catch(() => false)
-
-	if (!isBinary) {
-		return addLineNumbers(await fs.readFile(filePath, "utf8"))
-	} else {
+	// Handle other files using readFileWithEncoding with binary detection
+	try {
+		const { content } = await readFileWithEncoding(filePath, { acceptTextOnly: true })
+		return addLineNumbers(content)
+	} catch (error) {
 		throw new Error(`Cannot read text for file type: ${fileExtension}`)
 	}
 }

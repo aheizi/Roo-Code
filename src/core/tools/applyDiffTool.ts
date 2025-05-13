@@ -1,5 +1,5 @@
 import path from "path"
-import fs from "fs/promises"
+import { readFileWithEncoding } from "../../integrations/misc/readFileWithEncoding"
 
 import { TelemetryService } from "@roo-code/telemetry"
 
@@ -86,7 +86,7 @@ export async function applyDiffTool(
 				return
 			}
 
-			let originalContent: string | null = await fs.readFile(absolutePath, "utf-8")
+			let originalContent: string | null = (await readFileWithEncoding(absolutePath)).content
 
 			// Apply the diff to the original content
 			const diffResult = (await cline.diffStrategy?.applyDiff(
