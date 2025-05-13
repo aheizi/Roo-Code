@@ -2,6 +2,7 @@ import * as path from "path"
 import * as os from "os"
 import * as vscode from "vscode"
 import { arePathsEqual, getWorkspacePath } from "../../utils/path"
+import { readFileWithEncoding } from "./readFileWithEncoding"
 
 export async function openImage(dataUri: string) {
 	const matches = dataUri.match(/^data:image\/([a-zA-Z]+);base64,(.+)$/)
@@ -75,7 +76,10 @@ export async function openFile(filePath: string, options: OpenFileOptions = {}) 
 			}
 		} catch {} // not essential, sometimes tab operations fail
 
-		const document = await vscode.workspace.openTextDocument(uri)
+		const fileContent = await readFileWithEncoding(fullPath)
+		const ext = path.extname(fullPath).slice(1)
+		const language = ext || undefined
+		const document = await vscode.workspace.openTextDocument({ content: fileContent, language })
 		const selection =
 			options.line !== undefined ? new vscode.Selection(options.line - 1, 0, options.line - 1, 0) : undefined
 		await vscode.window.showTextDocument(document, {
