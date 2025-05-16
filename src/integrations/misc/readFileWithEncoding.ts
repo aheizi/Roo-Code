@@ -1,4 +1,5 @@
 import * as fs from "fs/promises"
+import * as path from "path"
 import * as chardet from "chardet"
 import * as iconv from "iconv-lite"
 
@@ -116,7 +117,7 @@ export function tryDecodeBuffer(
  */
 export async function readFileSmart(filePath: string, toUtf8: boolean = false): Promise<string> {
 	const buffer = await fs.readFile(filePath)
-	const ext = filePath.split(".").pop()?.toLowerCase() || ""
+	const ext = path.extname(filePath).slice(1).toLowerCase() || ""
 	const detectedEncoding = (chardet.detect(buffer) || "utf-8").toString().toLowerCase()
 	const encodings = getCandidateEncodings(detectedEncoding)
 
