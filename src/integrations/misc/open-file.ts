@@ -2,7 +2,7 @@ import * as path from "path"
 import * as os from "os"
 import * as vscode from "vscode"
 import { arePathsEqual, getWorkspacePath } from "../../utils/path"
-import { readFileWithEncoding } from "./readFileWithEncoding"
+import { readFileSmart } from "./readFileWithEncoding"
 
 export async function openImage(dataUri: string) {
 	const matches = dataUri.match(/^data:image\/([a-zA-Z]+);base64,(.+)$/)
@@ -76,7 +76,7 @@ export async function openFile(filePath: string, options: OpenFileOptions = {}) 
 			}
 		} catch {} // not essential, sometimes tab operations fail
 
-		const fileContent = await readFileWithEncoding(fullPath)
+		const fileContent = await readFileSmart(fullPath, true)
 		const ext = path.extname(fullPath).slice(1)
 		const language = ext || undefined
 		const document = await vscode.workspace.openTextDocument({ content: fileContent, language })

@@ -3,71 +3,150 @@ import * as chardet from "chardet"
 import * as iconv from "iconv-lite"
 
 /**
- * Auto-detect file encoding and return UTF-8 string
- * Supports UTF-8/GBK/GB18030/shift_jis/ascii, with multi-encoding attempts and Chinese heuristic detection
- * @param filePath File path
+ * Common text file extensions that should always be treated as text
  */
-const alwaysTextExtensions = ["txt", "md", "js", "ts", "json", "html", "css", "xml", "csv", "log", "yaml", "yml"]
-const candidateEncodings = ["utf-8", "gb18030", "gbk", "gb2312", "shift_jis"]
+const alwaysTextExtensions = [
+	"txt",
+	"md",
+	"log",
+	"rst",
+	"tex",
+	"json",
+	"yaml",
+	"yml",
+	"ini",
+	"conf",
+	"cfg",
+	"env",
+	"toml",
+	"properties",
+	"js",
+	"jsx",
+	"ts",
+	"tsx",
+	"c",
+	"cpp",
+	"h",
+	"hpp",
+	"java",
+	"py",
+	"rb",
+	"php",
+	"go",
+	"rs",
+	"swift",
+	"scala",
+	"pl",
+	"lua",
+	"sh",
+	"bat",
+	"ps1",
+	"html",
+	"xml",
+	"css",
+	"scss",
+	"less",
+	"styl",
+	"vue",
+	"csv",
+	"tsv",
+]
 
-function scoreText(text: string): number {
-	// Scoring: Chinese characters + common punctuation + full-width characters ratio
+/**
+ * Scores text based on presence of Chinese/full-width characters
+ * Higher score means more likely to be Chinese text
+ * Pure ASCII text gets penalty score
+ */
+export function scoreText(text: string): number {
 	const total = text.length
 	if (total === 0) return 0
-	const zh = (text.match(/[\u4e00-\u9fa5]/g) || []).length
-	const punct = (text.match(/[\u3000-\u303F\uff00-\uffef]/g) || []).length
-	const ascii = (text.match(/[\x00-\x7f]/g) || []).length
-	// Higher score for Chinese + full-width punctuation, minus if pure ASCII
-	return (zh * 2 + punct) / total - (ascii === total ? 1 : 0)
+	const zh = (text.match(/[\u4e00-\u9fff]/g) || []).length
+	const fullWidth = (text.match(/[\u3000-\u303F\uff00-\uffef]/g) || []).length
+	const ascii = (text.match(/[\x00-\x7F]/g) || []).length
+	return (zh * 2 + fullWidth) / total - (ascii === total ? 1 : 0)
 }
 
-export async function readFileWithEncoding(filePath: string): Promise<string> {
-	const buffer = await fs.readFile(filePath)
-	const ext = filePath.split(".").pop()?.toLowerCase() || ""
-	// 1. chardet detection
-	let chardetEnc = (chardet.detect(buffer) || "utf-8").toString().toLowerCase()
-	// 2. Build candidate encoding list
-	const encodings = new Set<string>()
-	encodings.add("utf-8")
-	encodings.add("gb18030")
-	if (chardetEnc && !encodings.has(chardetEnc)) encodings.add(chardetEnc)
-	if (candidateEncodings.includes(chardetEnc)) encodings.add(chardetEnc)
-	// 3. For common text types, try multiple encodings first
-	if (alwaysTextExtensions.includes(ext)) {
-		let bestScore = -Infinity
-		let bestText = ""
-		encodings.forEach((enc) => {
-			let text: string
-			try {
-				if (enc === "utf-8" || enc === "utf8") {
-					text = buffer.toString("utf8")
-				} else {
-					text = iconv.decode(buffer, enc)
-				}
-			} catch {
-				return
-			}
+/**
+ * Gets candidate encodings to try, prioritizing UTF-8 and Chinese-related encodings
+ * @param detected - Auto-detected encoding from chardet
+ */
+export function getCandidateEncodings(detected: string): string[] {
+	const baseEncodings = ["utf-8", "gb18030", "gbk", "shift_jis"]
+	const encSet = new Set(baseEncodings)
+	if (detected) encSet.add(detected.toLowerCase())
+	return Array.from(encSet)
+}
+
+/**
+ * Attempts to decode buffer with multiple encodings and returns best result
+ * @param buffer - File content buffer
+ * @param encodings - List of encodings to try
+ * @returns Object with decoded text, score and used encoding
+ */
+export function tryDecodeBuffer(
+	buffer: Buffer,
+	encodings: string[],
+): { text: string; score: number; encoding: string } {
+	let bestScore = -Infinity
+	let bestText = ""
+	let bestEncoding = "utf-8"
+
+	for (const enc of encodings) {
+		try {
+			const text = enc === "utf-8" || enc === "utf8" ? buffer.toString("utf8") : iconv.decode(buffer, enc)
 			const score = scoreText(text)
 			if (score > bestScore) {
 				bestScore = score
 				bestText = text
+				bestEncoding = enc
 			}
-		})
-		// If score above threshold, return best decoded text
-		if (bestScore > 0.05) return bestText
-		// Fallback to utf-8
-		return buffer.toString("utf8")
+		} catch {
+			continue
+		}
 	}
-	// 4. For other types, prefer chardet result
-	if (["gbk", "gb2312", "gb18030"].includes(chardetEnc)) {
-		return iconv.decode(buffer, "gb18030")
+
+	return { text: bestText, score: bestScore, encoding: bestEncoding }
+}
+
+/**
+ * Reads file with automatic encoding detection and decoding
+ * @param filePath - Path to file
+ * @param toUtf8 - Whether to force convert to UTF-8 (default false)
+ * @returns Decoded file content
+ */
+export async function readFileSmart(filePath: string, toUtf8: boolean = false): Promise<string> {
+	const buffer = await fs.readFile(filePath)
+	const ext = filePath.split(".").pop()?.toLowerCase() || ""
+	const detectedEncoding = (chardet.detect(buffer) || "utf-8").toString().toLowerCase()
+	const encodings = getCandidateEncodings(detectedEncoding)
+
+	const shouldTryAll = alwaysTextExtensions.includes(ext)
+	const { text: bestText, score } = tryDecodeBuffer(buffer, encodings)
+
+	if (shouldTryAll || score > 0.05) {
+		return toUtf8 ? Buffer.from(bestText).toString("utf8") : bestText
 	}
-	if (chardetEnc === "shift_jis") {
-		// Handle shift_jis misdetection, try gb18030
-		const gbText = iconv.decode(buffer, "gb18030")
-		if (/[\u4e00-\u9fa5]/.test(gbText)) return gbText
-		return iconv.decode(buffer, "shift_jis")
+
+	try {
+		let text: string
+		if (["gbk", "gb2312", "gb18030"].includes(detectedEncoding)) {
+			text = iconv.decode(buffer, "gb18030")
+		} else if (detectedEncoding === "shift_jis") {
+			const gbText = iconv.decode(buffer, "gb18030")
+			if (/[\u4e00-\u9fa5]/.test(gbText)) {
+				text = gbText
+			} else {
+				text = iconv.decode(buffer, "shift_jis")
+			}
+		} else if (detectedEncoding === "utf-8" || detectedEncoding === "utf8") {
+			text = buffer.toString("utf8")
+		} else {
+			text = iconv.decode(buffer, detectedEncoding)
+		}
+
+		return toUtf8 ? Buffer.from(text).toString("utf8") : text
+	} catch {
+		const fallback = buffer.toString("utf8")
+		return toUtf8 ? fallback : fallback
 	}
-	// fallback
-	return buffer.toString("utf8")
 }

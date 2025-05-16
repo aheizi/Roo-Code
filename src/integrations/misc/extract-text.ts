@@ -4,7 +4,7 @@ import pdf from "pdf-parse/lib/pdf-parse"
 import mammoth from "mammoth"
 import fs from "fs/promises"
 import { isBinaryFile } from "isbinaryfile"
-import { readFileWithEncoding } from "./readFileWithEncoding"
+import { readFileSmart } from "./readFileWithEncoding"
 
 export async function extractTextFromFile(filePath: string): Promise<string> {
 	try {
@@ -26,6 +26,33 @@ export async function extractTextFromFile(filePath: string): Promise<string> {
 		".log",
 		".yaml",
 		".yml",
+		".py",
+		".java",
+		".c",
+		".cpp",
+		".h",
+		".hpp",
+		".cs",
+		".go",
+		".rb",
+		".php",
+		".sh",
+		".bat",
+		".swift",
+		".rs",
+		".kt",
+		".scala",
+		".m",
+		".pl",
+		".r",
+		".dart",
+		".lua",
+		".tsx",
+		".jsx",
+		".toml",
+		".ini",
+		".conf",
+		".env",
 	]
 	switch (fileExtension) {
 		case ".pdf":
@@ -36,11 +63,11 @@ export async function extractTextFromFile(filePath: string): Promise<string> {
 			return extractTextFromIPYNB(filePath)
 		default:
 			if (alwaysTextExtensions.includes(fileExtension)) {
-				return addLineNumbers(await readFileWithEncoding(filePath))
+				return addLineNumbers(await readFileSmart(filePath, true))
 			}
 			const isBinary = await isBinaryFile(filePath).catch(() => false)
 			if (!isBinary) {
-				return addLineNumbers(await readFileWithEncoding(filePath))
+				return addLineNumbers(await readFileSmart(filePath, true))
 			} else {
 				throw new Error(`Cannot read text for file type: ${fileExtension}`)
 			}

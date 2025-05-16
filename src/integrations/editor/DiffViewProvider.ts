@@ -8,7 +8,7 @@ import { DecorationController } from "./DecorationController"
 import * as diff from "diff"
 import { diagnosticsToProblemsString, getNewDiagnostics } from "../diagnostics"
 import stripBom from "strip-bom"
-
+import { readFileSmart } from "../misc/readFileWithEncoding"
 export const DIFF_VIEW_URI_SCHEME = "cline-diff"
 
 export class DiffViewProvider {
@@ -46,7 +46,7 @@ export class DiffViewProvider {
 		this.preDiagnostics = vscode.languages.getDiagnostics()
 
 		if (fileExists) {
-			this.originalContent = await fs.readFile(absolutePath, "utf-8")
+			this.originalContent = await readFileSmart(absolutePath)
 		} else {
 			this.originalContent = ""
 		}
@@ -299,7 +299,7 @@ export class DiffViewProvider {
 					query: Buffer.from(this.originalContent ?? "").toString("base64"),
 				}),
 				uri,
-				`${fileName}: ${fileExists ? "Original ↔ Roo's Changes" : "New File"} (Editable)`,
+				`${fileName}: ${fileExists ? "Original ↔ WeCoder Changes" : "New File"} (Editable)`,
 			)
 			// This may happen on very slow machines ie project idx
 			setTimeout(() => {
@@ -354,7 +354,7 @@ export class DiffViewProvider {
 	// close editor if open?
 	async reset() {
 		// Ensure any diff views opened by this provider are closed to release memory
-		await this.closeAllDiffViews();
+		await this.closeAllDiffViews()
 		this.editType = undefined
 		this.isEditing = false
 		this.originalContent = undefined
