@@ -14,7 +14,7 @@ export function scoreText(text: string): number {
 	if (total === 0) return 0
 	const zh = (text.match(/[\u4e00-\u9fff]/g) || []).length
 	const fullWidth = (text.match(/[\u3000-\u303F\uff00-\uffef]/g) || []).length
-	const ascii = (text.match(/[\x00-\x7F]/g) || []).length
+	const ascii = Array.from(text).filter((c) => c.charCodeAt(0) <= 0x7f).length
 	return (zh * 2 + fullWidth) / total - (ascii === total ? 1 : 0)
 }
 

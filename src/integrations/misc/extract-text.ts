@@ -28,11 +28,13 @@ export async function extractTextFromFile(filePath: string): Promise<string> {
 			if (textExtensionsWithDot.includes(fileExtension)) {
 				return addLineNumbers(await readFileSmart(filePath, true))
 			}
-			const isBinary = await isBinaryFile(filePath).catch(() => false)
-			if (!isBinary) {
-				return addLineNumbers(await readFileSmart(filePath, true))
-			} else {
-				throw new Error(`Cannot read text for file type: ${fileExtension}`)
+			{
+				const isBinary = await isBinaryFile(filePath).catch(() => false)
+				if (!isBinary) {
+					return addLineNumbers(await readFileSmart(filePath, true))
+				} else {
+					throw new Error(`Cannot read text for file type: ${fileExtension}`)
+				}
 			}
 	}
 }
